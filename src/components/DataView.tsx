@@ -33,9 +33,16 @@ export function DataView({ store, onSelect, onReplace, onMerge }: Props) {
   const pendingMode = useRef<'merge' | 'replace' | null>(null);
 
   const allTags = useMemo(() => collectAllTags(store.entries), [store.entries]);
+  const isSearching = Boolean(
+    filters.keyword.trim() ||
+      filters.year.trim() ||
+      filters.month.trim() ||
+      filters.day.trim() ||
+      filters.tags.length > 0,
+  );
   const results = useMemo(
-    () => filterEntries(store.entries, filters),
-    [store.entries, filters],
+    () => (isSearching ? filterEntries(store.entries, filters) : []),
+    [store.entries, filters, isSearching],
   );
   const dayCount = countUniqueDays(store.entries);
 
@@ -196,32 +203,36 @@ export function DataView({ store, onSelect, onReplace, onMerge }: Props) {
           )}
         </div>
 
-        <div className="row-actions">
-          <button
-            type="button"
-            className="btn-ghost"
-            onClick={() => {
-              setFilters(emptyFilters);
-              setTagDraft('');
-            }}
-          >
-            清空条件
-          </button>
-          <span className="hint">{results.length} 条结果</span>
-        </div>
-      </div>
-
-      <div className="search-results">
-        {results.map((entry) => (
-          <div key={entry.id} className="search-result">
-            <p className="search-result__date">{formatDisplayDate(entry.date)}</p>
-            <EntryList entries={[entry]} onSelect={onSelect} />
+        {isSearching && (
+          <div className="row-actions">
+            <button
+              type="button"
+              className="btn-ghost"
+              onClick={() => {
+                setFilters(emptyFilters);
+                setTagDraft('');
+              }}
+            >
+              清空条件
+            </button>
+            <span className="hint">{results.length} 条结果</span>
           </div>
-        ))}
-        {results.length === 0 && (
-          <p className="empty-hint">没有符合条件的日记。</p>
         )}
       </div>
+
+      {isSearching && (
+        <div className="search-results">
+          {results.map((entry) => (
+            <div key={entry.id} className="search-result">
+              <p className="search-result__date">{formatDisplayDate(entry.date)}</p>
+              <EntryList entries={[entry]} onSelect={onSelect} />
+            </div>
+          ))}
+          {results.length === 0 && (
+            <p className="empty-hint">没有符合条件的日记。</p>
+          )}
+        </div>
+      )}
 
       <div className="panel">
         <h2 className="panel__title">备份</h2>
