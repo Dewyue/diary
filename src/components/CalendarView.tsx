@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import type { DiaryEntry } from '../types';
 import { datesWithEntries, entriesForDate } from '../search';
 import {
@@ -8,6 +8,7 @@ import {
   todayISO,
 } from '../dateUtils';
 import { EntryList } from './EntryList';
+import { CalendarScrollPreview } from './CalendarScrollPreview';
 
 type Props = {
   entries: DiaryEntry[];
@@ -16,6 +17,7 @@ type Props = {
 };
 
 const MONTHS = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12];
+const LONG_PRESS_MS = 480;
 
 function yearOptions(entries: DiaryEntry[], currentYear: number): number[] {
   let min = currentYear;
@@ -39,6 +41,10 @@ export function CalendarView({ entries, onCreate, onSelect }: Props) {
   const [year, setYear] = useState(now.getFullYear());
   const [monthIndex, setMonthIndex] = useState(now.getMonth());
   const [selectedDate, setSelectedDate] = useState(today);
+  const [previewOpen, setPreviewOpen] = useState(false);
+
+  const longPressTimer = useRef<number | null>(null);
+  const longPressTriggered = useRef(false);
 
   const marked = useMemo(() => datesWithEntries(entries), [entries]);
   const grid = useMemo(() => buildMonthGrid(year, monthIndex), [year, monthIndex]);
@@ -52,15 +58,55 @@ export function CalendarView({ entries, onCreate, onSelect }: Props) {
     setMonthIndex(next.monthIndex);
   }
 
-  function jumpTo(nextYear: number, nextMonthIndex: number) {
+  function jumpTo(nextYear: number, nextMonthIndex: number, date?: string) {
     setYear(nextYear);
     setMonthIndex(nextMonthIndex);
+    if (date) {
+      setSelectedDate(date);
+      return;
+    }
     const day = Math.min(
       Number(selectedDate.slice(8, 10)) || 1,
       new Date(nextYear, nextMonthIndex + 1, 0).getDate(),
     );
-    const date = `${nextYear}-${String(nextMonthIndex + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
-    setSelectedDate(date);
+    setSelectedDate(
+      `${nextYear}-${String(nextMonthIndex + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`,
+    );
+  }
+
+  function goThisMonth() {
+    const d = new Date();
+    jumpTo(d.getFullYear(), d.getMonth(), todayISO());
+  }
+
+  function clearLongPress() {
+    if (longPressTimer.current != null) {
+      window.clearTimeout(longPressTimer.current);
+      longPressTimer.current = null;
+    }
+  }
+
+  function startLongPress() {
+    longPressTriggered.current = false;
+    clearLongPress();
+    longPressTimer.current = window.setTimeout(() => {
+      longPressTriggered.current = true;
+      setPreviewOpen(true);
+    }, LONG_PRESS_MS);
+  }
+
+  function handleThisMonthClick() {
+    if (longPressTriggered.current) {
+      longPressTriggered.current = false;
+      return;
+    }
+    goThisMonth();
+  }
+
+  function handlePreviewSelect(date: string) {
+    const [y, m] = date.split('-').map(Number);
+    jumpTo(y, m - 1, date);
+    setPreviewOpen(false);
   }
 
   return (
@@ -104,11 +150,14 @@ export function CalendarView({ entries, onCreate, onSelect }: Props) {
           <button
             type="button"
             className="btn-ghost"
-            onClick={() => {
-              const d = new Date();
-              jumpTo(d.getFullYear(), d.getMonth());
-              setSelectedDate(todayISO());
-            }}
+            onClick={handleThisMonthClick}
+            onPointerDown={startLongPress}
+            onPointerUp={clearLongPress}
+            onPointerLeave={clearLongPress}
+            onPointerCancel={clearLongPress}
+            onContextMenu={(e) => e.preventDefault()}
+            title="点击回本月，长按打开连续月份预览"
+            aria-label="本月，长按打开连续月份预览"
           >
             本月
           </button>
@@ -169,6 +218,15 @@ export function CalendarView({ entries, onCreate, onSelect }: Props) {
           onSelect={onSelect}
         />
       </div>
+
+      {previewOpen && (
+        <CalendarScrollPreview
+          marked={marked}
+          selectedDate={selectedDate}
+          onSelectDate={handlePreviewSelect}
+          onClose={() => setPreviewOpen(false)}
+        />
+      )}
     </section>
   );
 }
