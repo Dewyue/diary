@@ -2,10 +2,11 @@
 /**
  * 微信聊天记录 txt → 日记 JSON（仅本地运行，内容不会上传）
  *
+ * 默认：导入双方全部消息（不写昵称），同一天合并成一条，内容用换行分隔。
+ *
  * 用法：
  *   npm run wechat:import -- ./聊天记录.txt
- *   npm run wechat:import -- ./聊天记录.txt --from "你的昵称"
- *   npm run wechat:import -- ./聊天记录.txt -o ./diary-from-wechat.json --tag 微信
+ *   npm run wechat:import -- ./聊天记录.txt -o ./diary-from-wechat.json
  *
  * 导入：打开 https://dewyue.github.io/diary/ → 数据 → 合并导入
  */
@@ -67,7 +68,7 @@ function parseArgs(argv) {
     output: null,
     from: null,
     tag: '微信',
-    mergeDay: false,
+    mergeDay: true,
   };
 
   for (let i = 0; i < argv.length; i++) {
@@ -77,6 +78,7 @@ function parseArgs(argv) {
     else if (a === '--tag') args.tag = argv[++i];
     else if (a === '--no-tag') args.tag = '';
     else if (a === '--merge-day') args.mergeDay = true;
+    else if (a === '--split') args.mergeDay = false;
     else if (a === '-h' || a === '--help') args.help = true;
     else if (!a.startsWith('-') && !args.input) args.input = a;
   }
@@ -204,16 +206,18 @@ function parseMessages(raw) {
 }
 
 function toEntries(messages, { from, tag, mergeDay }) {
-  let list = messages;
+  let list = [...messages];
   if (from) {
     list = list.filter((m) => m.sender === from || m.sender.includes(from));
   }
+
+  list.sort((a, b) => a.createdAt.localeCompare(b.createdAt));
 
   const tags = tag ? [tag.trim().toLowerCase()] : [];
 
   if (!mergeDay) {
     return list.map((m) => ({
-      id: createId(`${m.createdAt}|${m.sender}|${m.content}`),
+      id: createId(`${m.createdAt}|${m.content}`),
       date: m.date,
       title: '',
       content: m.content,
@@ -223,27 +227,35 @@ function toEntries(messages, { from, tag, mergeDay }) {
     }));
   }
 
-  /** @type {Map<string, { date: string, parts: string[], createdAt: string }>} */
+  /** @type {Map<string, { date: string, parts: string[], createdAt: string, updatedAt: string }>} */
   const byDay = new Map();
   for (const m of list) {
     const cur = byDay.get(m.date);
     if (!cur) {
-      byDay.set(m.date, { date: m.date, parts: [m.content], createdAt: m.createdAt });
+      byDay.set(m.date, {
+        date: m.date,
+        parts: [m.content],
+        createdAt: m.createdAt,
+        updatedAt: m.createdAt,
+      });
     } else {
       cur.parts.push(m.content);
       if (m.createdAt < cur.createdAt) cur.createdAt = m.createdAt;
+      if (m.createdAt > cur.updatedAt) cur.updatedAt = m.createdAt;
     }
   }
 
-  return [...byDay.values()].map((day) => ({
-    id: createId(`day|${day.date}|${day.parts.join('\n')}`),
-    date: day.date,
-    title: '',
-    content: day.parts.join('\n\n'),
-    tags,
-    createdAt: day.createdAt,
-    updatedAt: day.createdAt,
-  }));
+  return [...byDay.values()]
+    .sort((a, b) => a.date.localeCompare(b.date))
+    .map((day) => ({
+      id: createId(`day|${day.date}|${day.parts.join('\n')}`),
+      date: day.date,
+      title: '',
+      content: day.parts.join('\n'),
+      tags,
+      createdAt: day.createdAt,
+      updatedAt: day.updatedAt,
+    }));
 }
 
 function printHelp() {
@@ -252,12 +264,16 @@ function printHelp() {
 用法：
   npm run wechat:import -- <聊天记录.txt> [选项]
 
+默认行为：
+  - 导入双方全部消息（不写入昵称，只保留内容与时间）
+  - 同一天合并成一条日记，多条内容用换行连接
+
 选项：
   -o, --out <文件>     输出路径（默认 diary-from-wechat.json）
-  --from <昵称>        只保留该发送者的消息（推荐）
   --tag <标签>         给导入条目打标签（默认：微信）
   --no-tag             不打标签
-  --merge-day          同一天多条合并成一条日记
+  --from <昵称>        可选：只保留该发送者
+  --split              可选：不按天合并，每条消息一条日记
 
 说明：
   - 仅在本地读写文件，不会上传网络
@@ -281,23 +297,15 @@ function main() {
   if (entries.length === 0) {
     console.error('没有解析到可用消息。可尝试：');
     console.error('  1. 确认是微信导出的 txt 文本');
-    console.error('  2. 去掉 --from，或改成导出里显示的准确昵称');
-    console.error('  3. 把文件前 30 行格式对照脚本注释检查');
+    console.error('  2. 对照 scripts/fixtures/wechat-sample.txt 检查格式');
     process.exit(2);
   }
 
   const store = { version: 1, entries };
   writeFileSync(outputPath, `${JSON.stringify(store, null, 2)}\n`, 'utf8');
 
-  const senders = [...new Set(messages.map((m) => m.sender).filter(Boolean))];
   console.log(`解析消息：${messages.length} 条`);
-  console.log(`写入日记：${entries.length} 条 → ${outputPath}`);
-  if (senders.length) {
-    console.log(`识别到的发送者：${senders.slice(0, 12).join('、')}${senders.length > 12 ? '…' : ''}`);
-    if (!args.from) {
-      console.log('提示：若只想导入自己的话，加 --from "你的昵称"');
-    }
-  }
+  console.log(`写入日记：${entries.length} 条（按天合并）→ ${outputPath}`);
   console.log('下一步：打开日记站 → 数据 → 合并导入，选择该 JSON 文件');
 }
 

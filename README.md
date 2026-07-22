@@ -27,11 +27,15 @@ npm run build
 
 把以前写在微信里的日记转成可导入的 JSON。**全程在你电脑上运行，聊天内容不会上传。**
 
+默认规则：
+- 双方消息都导入，不记录昵称（只保留内容与时间）
+- 同一天合并成一条，多条内容用换行连接
+
 1. 用电脑微信导出该聊天为 `.txt`
 2. 在项目目录执行：
 
 ```bash
-npm run wechat:import -- ~/Downloads/你的聊天记录.txt --from "你的微信昵称"
+npm run wechat:import -- ~/Downloads/你的聊天记录.txt
 ```
 
 3. 生成 `diary-from-wechat.json` 后，打开日记站 → **数据 → 合并导入**
@@ -40,17 +44,14 @@ npm run wechat:import -- ~/Downloads/你的聊天记录.txt --from "你的微信
 
 ```bash
 # 指定输出文件
-npm run wechat:import -- ./chat.txt --from "昵称" -o ./my-diary.json
-
-# 同一天多条合并成一条
-npm run wechat:import -- ./chat.txt --from "昵称" --merge-day
+npm run wechat:import -- ./chat.txt -o ./my-diary.json
 
 # 不打「微信」标签
-npm run wechat:import -- ./chat.txt --from "昵称" --no-tag
+npm run wechat:import -- ./chat.txt --no-tag
 ```
 
 可用仓库里的样例试跑（假数据）：
 
 ```bash
-npm run wechat:import -- ./scripts/fixtures/wechat-sample.txt --from "小兑"
+npm run wechat:import -- ./scripts/fixtures/wechat-sample.txt
 ```
