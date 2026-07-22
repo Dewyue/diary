@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import type { DiaryEntry, DiaryStore, EditorState, TabId } from './types';
 import {
   createEntry,
@@ -7,6 +7,7 @@ import {
   saveStore,
   updateEntry,
 } from './storage';
+import { collectAllTags } from './search';
 import { BottomNav } from './components/BottomNav';
 import { TodayView } from './components/TodayView';
 import { CalendarView } from './components/CalendarView';
@@ -18,6 +19,10 @@ export default function App() {
   const [store, setStore] = useState<DiaryStore>(() => loadStore());
   const [tab, setTab] = useState<TabId>('today');
   const [editor, setEditor] = useState<EditorState>({ mode: 'closed' });
+  const knownTags = useMemo(
+    () => collectAllTags(store.entries),
+    [store.entries],
+  );
 
   useEffect(() => {
     saveStore(store);
@@ -106,6 +111,7 @@ export default function App() {
         <EntryForm
           mode="create"
           date={editor.date}
+          knownTags={knownTags}
           onSave={handleSave}
           onCancel={() => setEditor({ mode: 'closed' })}
         />
@@ -115,6 +121,7 @@ export default function App() {
           mode="edit"
           date={editor.entry.date}
           entry={editor.entry}
+          knownTags={knownTags}
           onSave={handleSave}
           onCancel={() => setEditor({ mode: 'closed' })}
           onDelete={handleDelete}

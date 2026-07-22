@@ -528,6 +528,24 @@ button {
   gap: 0.5rem;
 }
 
+.tag-add-row button:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.tag-options,
+.tag-selected {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  margin-bottom: 0.5rem;
+}
+
+.tag-selected {
+  margin-top: 0.5rem;
+  margin-bottom: 0;
+}
+
 .row-actions,
 .import-actions {
   display: flex;

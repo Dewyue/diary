@@ -7,6 +7,7 @@ type Props = {
   mode: 'create' | 'edit';
   date: string;
   entry?: DiaryEntry;
+  knownTags?: string[];
   onSave: (payload: {
     content: string;
     tags: string[];
@@ -20,6 +21,7 @@ export function EntryForm({
   mode,
   date: initialDate,
   entry,
+  knownTags = [],
   onSave,
   onCancel,
   onDelete,
@@ -39,6 +41,12 @@ export function EntryForm({
     if (!tag) return;
     setTags((prev) => (prev.includes(tag) ? prev : [...prev, tag]));
     setTagInput('');
+  }
+
+  function toggleKnownTag(tag: string) {
+    setTags((prev) =>
+      prev.includes(tag) ? prev.filter((t) => t !== tag) : [...prev, tag],
+    );
   }
 
   function handleTagKey(e: KeyboardEvent<HTMLInputElement>) {
@@ -126,35 +134,69 @@ export function EntryForm({
             <span className="field__label" id={tagId}>
               标签
             </span>
-            <div className="tag-input" aria-labelledby={tagId}>
-              {tags.map((tag) => (
-                <button
-                  key={tag}
-                  type="button"
-                  className="tag tag--removable"
-                  onClick={() => setTags((prev) => prev.filter((t) => t !== tag))}
-                >
-                  {tag} ×
-                </button>
-              ))}
+
+            {knownTags.length > 0 && (
+              <div className="tag-options" aria-label="曾用标签">
+                {knownTags.map((tag) => {
+                  const selected = tags.includes(tag);
+                  return (
+                    <button
+                      key={tag}
+                      type="button"
+                      className={`tag${selected ? ' is-active' : ''}`}
+                      onClick={() => toggleKnownTag(tag)}
+                    >
+                      {tag}
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+
+            <div className="tag-add-row">
               <input
                 type="text"
                 name="diary-tag"
                 value={tagInput}
                 onChange={(e) => setTagInput(e.target.value)}
                 onKeyDown={handleTagKey}
-                onBlur={() => {
-                  if (tagInput.trim()) addTag(tagInput);
-                }}
-                placeholder={tags.length ? '' : '回车或逗号添加'}
+                placeholder="新建标签"
                 autoComplete="off"
                 autoCorrect="off"
                 autoCapitalize="none"
                 spellCheck={false}
                 data-1p-ignore
                 data-lpignore="true"
+                aria-labelledby={tagId}
               />
+              <button
+                type="button"
+                className="btn-ghost"
+                onClick={() => addTag(tagInput)}
+                disabled={!tagInput.trim()}
+              >
+                添加
+              </button>
             </div>
+
+            {tags.length > 0 && (
+              <div className="tag-selected" aria-label="已选标签">
+                {tags.map((tag) => (
+                  <button
+                    key={tag}
+                    type="button"
+                    className="tag tag--removable"
+                    onClick={() => setTags((prev) => prev.filter((t) => t !== tag))}
+                  >
+                    {tag} ×
+                  </button>
+                ))}
+              </div>
+            )}
+
+            {knownTags.length === 0 && (
+              <p className="hint">还没有历史标签，输入后点添加即可新建</p>
+            )}
           </div>
 
           <label className="field" htmlFor={contentId}>
