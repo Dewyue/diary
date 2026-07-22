@@ -8,7 +8,8 @@
     "build": "tsc -b && vite build",
     "lint": "oxlint",
     "preview": "vite preview",
-    "wechat:import": "node ./scripts/wechat-to-diary.mjs"
+    "wechat:import": "node ./scripts/wechat-to-diary.mjs",
+    "wechat:insight": "node ./scripts/insight-to-diary.mjs"
   },
   "dependencies": {
     "react": "^19.2.7",
