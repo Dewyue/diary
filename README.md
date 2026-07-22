@@ -1,32 +1,24 @@
-# React + TypeScript + Vite
+# 个人日记
 
-This template provides a minimal setup to get React working in Vite with HMR and some Oxlint rules.
+简洁的本地日记工具：按天写多条记录，支持标签、月历与查找。数据存在浏览器本地，可随时导出 / 导入 JSON，并支持到期自动备份提醒。
 
-Currently, two official plugins are available:
+**在线使用：** https://dewyue.github.io/diary/
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+## 功能
 
-## React Compiler
+- **今日**：快速记录当天内容
+- **日历**：按月查看、点选日期读写
+- **数据**：关键词 / 日期 / 标签查找，导出导入，自动备份设置
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+## 本地开发
 
-## Expanding the Oxlint configuration
-
-If you are developing a production application, we recommend enabling type-aware lint rules by installing `oxlint-tsgolint` and editing `.oxlintrc.json`:
-
-```json
-{
-  "$schema": "./node_modules/oxlint/configuration_schema.json",
-  "plugins": ["react", "typescript", "oxc"],
-  "options": {
-    "typeAware": true
-  },
-  "rules": {
-    "react/rules-of-hooks": "error",
-    "react/only-export-components": ["warn", { "allowConstantExport": true }]
-  }
-}
+```bash
+npm install
+npm run dev
 ```
 
-See the [Oxlint rules documentation](https://oxc.rs/docs/guide/usage/linter/rules) for the full list of rules and categories.
+```bash
+npm run build
+```
+
+构建产物会部署到 GitHub Pages（`/diary/` 路径）。
