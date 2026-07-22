@@ -134,7 +134,7 @@ export function DataView({
   }
 
   return (
-    <section className="view">
+    <section className="view data-view">
       <header className="view__header view__header--stack">
         <div>
           <p className="eyebrow">数据管理</p>
@@ -148,108 +148,110 @@ export function DataView({
 
       <div className="panel">
         <h2 className="panel__title">查找</h2>
-        <label className="field">
-          <span className="field__label">关键词</span>
-          <input
-            type="search"
-            value={filters.keyword}
-            onChange={(e) => updateFilter('keyword', e.target.value)}
-            placeholder="匹配内容"
-          />
-        </label>
+        <div className="panel__stack">
+          <label className="field field--flush">
+            <span className="field__label">关键词</span>
+            <input
+              type="search"
+              value={filters.keyword}
+              onChange={(e) => updateFilter('keyword', e.target.value)}
+              placeholder="匹配内容"
+            />
+          </label>
 
-        <div className="date-filters">
-          <label className="field">
-            <span className="field__label">年</span>
-            <input
-              type="number"
-              inputMode="numeric"
-              min={1970}
-              max={2100}
-              value={filters.year}
-              onChange={(e) => updateFilter('year', e.target.value)}
-              placeholder="YYYY"
-            />
-          </label>
-          <label className="field">
-            <span className="field__label">月</span>
-            <input
-              type="number"
-              inputMode="numeric"
-              min={1}
-              max={12}
-              value={filters.month}
-              onChange={(e) => updateFilter('month', e.target.value)}
-              placeholder="M"
-            />
-          </label>
-          <label className="field">
-            <span className="field__label">日</span>
-            <input
-              type="number"
-              inputMode="numeric"
-              min={1}
-              max={31}
-              value={filters.day}
-              onChange={(e) => updateFilter('day', e.target.value)}
-              placeholder="D"
-            />
-          </label>
-        </div>
+          <div className="date-filters">
+            <label className="field field--flush">
+              <span className="field__label">年</span>
+              <input
+                type="number"
+                inputMode="numeric"
+                min={1970}
+                max={2100}
+                value={filters.year}
+                onChange={(e) => updateFilter('year', e.target.value)}
+                placeholder="YYYY"
+              />
+            </label>
+            <label className="field field--flush">
+              <span className="field__label">月</span>
+              <input
+                type="number"
+                inputMode="numeric"
+                min={1}
+                max={12}
+                value={filters.month}
+                onChange={(e) => updateFilter('month', e.target.value)}
+                placeholder="M"
+              />
+            </label>
+            <label className="field field--flush">
+              <span className="field__label">日</span>
+              <input
+                type="number"
+                inputMode="numeric"
+                min={1}
+                max={31}
+                value={filters.day}
+                onChange={(e) => updateFilter('day', e.target.value)}
+                placeholder="D"
+              />
+            </label>
+          </div>
 
-        <div className="field">
-          <span className="field__label">标签</span>
-          <div className="tag-filter">
-            {allTags.map((tag) => (
-              <button
-                key={tag}
-                type="button"
-                className={`tag${filters.tags.includes(tag) ? ' is-active' : ''}`}
-                onClick={() => toggleTag(tag)}
-              >
-                {tag}
+          <div className="field field--flush">
+            <span className="field__label">标签</span>
+            {allTags.length > 0 && (
+              <div className="tag-filter">
+                {allTags.map((tag) => (
+                  <button
+                    key={tag}
+                    type="button"
+                    className={`tag${filters.tags.includes(tag) ? ' is-active' : ''}`}
+                    onClick={() => toggleTag(tag)}
+                  >
+                    {tag}
+                  </button>
+                ))}
+              </div>
+            )}
+            <div className="tag-add-row">
+              <input
+                type="text"
+                value={tagDraft}
+                onChange={(e) => setTagDraft(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    e.preventDefault();
+                    addTagFilter();
+                  }
+                }}
+                placeholder="输入标签筛选"
+              />
+              <button type="button" className="btn-ghost btn-ghost--match" onClick={addTagFilter}>
+                添加
               </button>
-            ))}
+            </div>
+            {filters.tags.length > 0 && (
+              <p className="hint">已选：{filters.tags.join('、')}（任一匹配）</p>
+            )}
           </div>
-          <div className="tag-add-row">
-            <input
-              type="text"
-              value={tagDraft}
-              onChange={(e) => setTagDraft(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter') {
-                  e.preventDefault();
-                  addTagFilter();
-                }
-              }}
-              placeholder="输入标签筛选"
-            />
-            <button type="button" className="btn-ghost" onClick={addTagFilter}>
-              添加
-            </button>
-          </div>
-          {filters.tags.length > 0 && (
-            <p className="hint">
-              当前筛选标签：{filters.tags.join('、')}（任一匹配）
-            </p>
+
+          {isSearching && (
+            <div className="row-actions">
+              <button
+                type="button"
+                className="btn-ghost"
+                onClick={() => {
+                  setFilters(emptyFilters);
+                  setTagDraft('');
+                }}
+              >
+                清空条件
+              </button>
+              <span className="hint hint--inline">{results.length} 条结果</span>
+            </div>
           )}
         </div>
-
-        {isSearching && (
-          <div className="row-actions">
-            <button
-              type="button"
-              className="btn-ghost"
-              onClick={() => {
-                setFilters(emptyFilters);
-                setTagDraft('');
-              }}
-            >
-              清空条件
-            </button>
-            <span className="hint">{results.length} 条结果</span>
-          </div>
-        )}
       </div>
 
       {isSearching && (
@@ -268,68 +270,72 @@ export function DataView({
 
       <div className="panel">
         <h2 className="panel__title">自动备份</h2>
-        <p className="hint hint--spaced">
-          开启后，到期时保存日记会自动下载 JSON；打开应用也会提醒你导出。
-        </p>
-        <label className="switch-row">
-          <span>启用自动备份</span>
-          <input
-            type="checkbox"
-            checked={backupPrefs.enabled}
-            onChange={(e) => updateBackup({ enabled: e.target.checked })}
-          />
-        </label>
-        <div className="field">
-          <span className="field__label">提醒间隔</span>
-          <div className="segmented">
-            {INTERVALS.map((days) => (
-              <button
-                key={days}
-                type="button"
-                className={`segmented__item${backupPrefs.intervalDays === days ? ' is-active' : ''}`}
-                onClick={() => updateBackup({ intervalDays: days })}
-                disabled={!backupPrefs.enabled}
-              >
-                {intervalLabel(days)}
-              </button>
-            ))}
+        <div className="panel__stack">
+          <p className="panel__desc">
+            到期后保存日记时自动导出；打开应用也会提醒。
+          </p>
+          <label className="switch-row">
+            <span>启用自动备份</span>
+            <input
+              type="checkbox"
+              checked={backupPrefs.enabled}
+              onChange={(e) => updateBackup({ enabled: e.target.checked })}
+            />
+          </label>
+          <div className="field field--flush">
+            <span className="field__label">提醒间隔</span>
+            <div className="segmented">
+              {INTERVALS.map((days) => (
+                <button
+                  key={days}
+                  type="button"
+                  className={`segmented__item${backupPrefs.intervalDays === days ? ' is-active' : ''}`}
+                  onClick={() => updateBackup({ intervalDays: days })}
+                  disabled={!backupPrefs.enabled}
+                >
+                  {intervalLabel(days)}
+                </button>
+              ))}
+            </div>
           </div>
+          <p className="meta-line">上次备份：{formatBackupTime(backupPrefs.lastBackupAt)}</p>
         </div>
-        <p className="hint">上次备份：{formatBackupTime(backupPrefs.lastBackupAt)}</p>
       </div>
 
       <div className="panel">
         <h2 className="panel__title">备份</h2>
-        <p className="hint hint--spaced">
-          数据保存在本机浏览器，请把导出的 JSON 存到网盘或电脑。
-        </p>
-        <div className="import-actions">
-          <button
-            type="button"
-            className="btn-block btn-block--accent"
-            onClick={handleManualExport}
-          >
-            导出 JSON
-          </button>
-          <button type="button" className="btn-block" onClick={() => startImport('merge')}>
-            合并导入
-          </button>
-          <button type="button" className="btn-block" onClick={() => startImport('replace')}>
-            覆盖导入
-          </button>
+        <div className="panel__stack">
+          <p className="panel__desc">
+            数据只存在本机，请把导出的 JSON 存到网盘或电脑。
+          </p>
+          <div className="import-actions">
+            <button
+              type="button"
+              className="btn-block btn-block--accent"
+              onClick={handleManualExport}
+            >
+              导出 JSON
+            </button>
+            <button type="button" className="btn-block" onClick={() => startImport('merge')}>
+              合并导入
+            </button>
+            <button type="button" className="btn-block" onClick={() => startImport('replace')}>
+              覆盖导入
+            </button>
+          </div>
+          <input
+            ref={fileRef}
+            type="file"
+            accept="application/json,.json"
+            hidden
+            onChange={(e) => {
+              void handleFile(e.target.files?.[0]);
+              e.target.value = '';
+            }}
+          />
+          {message && <p className="feedback feedback--ok">{message}</p>}
+          {error && <p className="feedback feedback--err">{error}</p>}
         </div>
-        <input
-          ref={fileRef}
-          type="file"
-          accept="application/json,.json"
-          hidden
-          onChange={(e) => {
-            void handleFile(e.target.files?.[0]);
-            e.target.value = '';
-          }}
-        />
-        {message && <p className="feedback feedback--ok">{message}</p>}
-        {error && <p className="feedback feedback--err">{error}</p>}
       </div>
     </section>
   );
