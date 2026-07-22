@@ -4,7 +4,6 @@ import { datesWithEntries, entriesForDate } from '../search';
 import {
   buildMonthGrid,
   formatDisplayDate,
-  formatMonthTitle,
   shiftMonth,
   todayISO,
 } from '../dateUtils';
@@ -16,6 +15,24 @@ type Props = {
   onSelect: (entry: DiaryEntry) => void;
 };
 
+const MONTHS = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12];
+
+function yearOptions(entries: DiaryEntry[], currentYear: number): number[] {
+  let min = currentYear;
+  let max = currentYear;
+  for (const entry of entries) {
+    const y = Number(entry.date.slice(0, 4));
+    if (!Number.isFinite(y)) continue;
+    min = Math.min(min, y);
+    max = Math.max(max, y);
+  }
+  min = Math.min(min, currentYear - 2);
+  max = Math.max(max, currentYear + 1);
+  const years: number[] = [];
+  for (let y = max; y >= min; y--) years.push(y);
+  return years;
+}
+
 export function CalendarView({ entries, onCreate, onSelect }: Props) {
   const today = todayISO();
   const now = new Date();
@@ -26,6 +43,8 @@ export function CalendarView({ entries, onCreate, onSelect }: Props) {
   const marked = useMemo(() => datesWithEntries(entries), [entries]);
   const grid = useMemo(() => buildMonthGrid(year, monthIndex), [year, monthIndex]);
   const dayEntries = entriesForDate(entries, selectedDate);
+  const currentYear = now.getFullYear();
+  const years = useMemo(() => yearOptions(entries, currentYear), [entries, currentYear]);
 
   function goMonth(delta: number) {
     const next = shiftMonth(year, monthIndex, delta);
@@ -33,12 +52,50 @@ export function CalendarView({ entries, onCreate, onSelect }: Props) {
     setMonthIndex(next.monthIndex);
   }
 
+  function jumpTo(nextYear: number, nextMonthIndex: number) {
+    setYear(nextYear);
+    setMonthIndex(nextMonthIndex);
+    const day = Math.min(
+      Number(selectedDate.slice(8, 10)) || 1,
+      new Date(nextYear, nextMonthIndex + 1, 0).getDate(),
+    );
+    const date = `${nextYear}-${String(nextMonthIndex + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+    setSelectedDate(date);
+  }
+
   return (
     <section className="view">
-      <header className="view__header">
+      <header className="view__header view__header--calendar">
         <div>
           <p className="eyebrow">日历</p>
-          <h1 className="view__title">{formatMonthTitle(year, monthIndex)}</h1>
+          <div className="month-pickers" role="group" aria-label="选择年月">
+            <label className="month-picker">
+              <span className="sr-only">年份</span>
+              <select
+                value={year}
+                onChange={(e) => jumpTo(Number(e.target.value), monthIndex)}
+              >
+                {years.map((y) => (
+                  <option key={y} value={y}>
+                    {y}年
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label className="month-picker">
+              <span className="sr-only">月份</span>
+              <select
+                value={monthIndex}
+                onChange={(e) => jumpTo(year, Number(e.target.value))}
+              >
+                {MONTHS.map((m, index) => (
+                  <option key={m} value={index}>
+                    {m}月
+                  </option>
+                ))}
+              </select>
+            </label>
+          </div>
         </div>
         <div className="month-nav">
           <button type="button" className="btn-ghost" onClick={() => goMonth(-1)} aria-label="上个月">
@@ -49,8 +106,7 @@ export function CalendarView({ entries, onCreate, onSelect }: Props) {
             className="btn-ghost"
             onClick={() => {
               const d = new Date();
-              setYear(d.getFullYear());
-              setMonthIndex(d.getMonth());
+              jumpTo(d.getFullYear(), d.getMonth());
               setSelectedDate(todayISO());
             }}
           >
