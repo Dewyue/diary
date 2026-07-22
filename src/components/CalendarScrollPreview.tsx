@@ -6,7 +6,8 @@ import {
   todayISO,
 } from '../dateUtils';
 
-const RANGE = 8;
+/** How many months ahead of today to keep scrollable. */
+const FUTURE_MONTHS = 8;
 
 type Props = {
   marked: Set<string>;
@@ -17,6 +18,27 @@ type Props = {
 
 function monthKey(year: number, monthIndex: number) {
   return `${year}-${monthIndex}`;
+}
+
+function earliestMarkedMonth(
+  marked: Set<string>,
+  fallbackYear: number,
+  fallbackMonthIndex: number,
+): { year: number; monthIndex: number } {
+  let min: string | null = null;
+  for (const date of marked) {
+    if (!min || date < min) min = date;
+  }
+  if (!min) return { year: fallbackYear, monthIndex: fallbackMonthIndex };
+  const [y, m] = min.split('-').map(Number);
+  return { year: y, monthIndex: m - 1 };
+}
+
+function monthDistance(
+  from: { year: number; monthIndex: number },
+  to: { year: number; monthIndex: number },
+) {
+  return (to.year - from.year) * 12 + (to.monthIndex - from.monthIndex);
 }
 
 export function CalendarScrollPreview({
@@ -31,9 +53,15 @@ export function CalendarScrollPreview({
   const monthRefs = useRef(new Map<string, HTMLElement>());
 
   const months = useMemo(() => {
-    const start = shiftMonth(now.getFullYear(), now.getMonth(), -RANGE);
+    const current = { year: now.getFullYear(), monthIndex: now.getMonth() };
+    const earliest = earliestMarkedMonth(marked, current.year, current.monthIndex);
+    // Start at earliest diary month (or today if empty); never later than current.
+    const start =
+      monthDistance(earliest, current) >= 0 ? earliest : current;
+    const end = shiftMonth(current.year, current.monthIndex, FUTURE_MONTHS);
+    const count = monthDistance(start, end);
     const list: { year: number; monthIndex: number; key: string }[] = [];
-    for (let i = 0; i <= RANGE * 2; i++) {
+    for (let i = 0; i <= count; i++) {
       const m = shiftMonth(start.year, start.monthIndex, i);
       list.push({
         year: m.year,
@@ -43,7 +71,7 @@ export function CalendarScrollPreview({
     }
     return list;
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [marked]);
 
   useEffect(() => {
     const prev = document.body.style.overflow;
