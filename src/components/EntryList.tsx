@@ -29,10 +29,9 @@ export function EntryList({ entries, emptyText = '暂无日记', onSelect }: Pro
                 </span>
               ))}
             </div>
-            <h3 className="entry-list__title">{entry.title || '无标题'}</h3>
-            {entry.content ? (
-              <p className="entry-list__preview">{entry.content}</p>
-            ) : null}
+            <p className="entry-list__preview entry-list__preview--primary">
+              {entry.content || '（空内容）'}
+            </p>
           </button>
         </li>
       ))}

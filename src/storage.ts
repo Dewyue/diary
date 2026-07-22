@@ -83,7 +83,6 @@ export function createId(): string {
 
 export function createEntry(
   date: string,
-  title: string,
   content: string,
   tags: string[],
 ): DiaryEntry {
@@ -91,7 +90,7 @@ export function createEntry(
   return {
     id: createId(),
     date,
-    title: title.trim(),
+    title: '',
     content: content.trim(),
     tags: [...new Set(tags.map(normalizeTag).filter(Boolean))],
     createdAt: now,
@@ -101,7 +100,6 @@ export function createEntry(
 
 export function updateEntry(
   entry: DiaryEntry,
-  title: string,
   content: string,
   tags: string[],
   date?: string,
@@ -109,7 +107,7 @@ export function updateEntry(
   return {
     ...entry,
     date: date ?? entry.date,
-    title: title.trim(),
+    title: '',
     content: content.trim(),
     tags: [...new Set(tags.map(normalizeTag).filter(Boolean))],
     updatedAt: new Date().toISOString(),

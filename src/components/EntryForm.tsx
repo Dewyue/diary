@@ -8,7 +8,6 @@ type Props = {
   date: string;
   entry?: DiaryEntry;
   onSave: (payload: {
-    title: string;
     content: string;
     tags: string[];
     date: string;
@@ -25,12 +24,11 @@ export function EntryForm({
   onCancel,
   onDelete,
 }: Props) {
-  const titleId = useId();
+  const headingId = useId();
   const contentId = useId();
   const tagId = useId();
   const dateId = useId();
 
-  const [title, setTitle] = useState(entry?.title ?? '');
   const [content, setContent] = useState(entry?.content ?? '');
   const [date, setDate] = useState(entry?.date ?? initialDate);
   const [tags, setTags] = useState<string[]>(entry?.tags ?? []);
@@ -59,15 +57,14 @@ export function EntryForm({
       window.alert('请选择日期');
       return;
     }
-    if (!title.trim() && !content.trim()) {
-      window.alert('请至少填写标题或正文');
+    if (!content.trim()) {
+      window.alert('请填写内容');
       return;
     }
     const finalTags = tagInput.trim()
       ? [...new Set([...tags, normalizeTag(tagInput)])]
       : tags;
     onSave({
-      title,
       content,
       tags: finalTags.filter(Boolean),
       date: nextDate,
@@ -82,7 +79,7 @@ export function EntryForm({
   }
 
   return (
-    <div className="sheet" role="dialog" aria-modal="true" aria-labelledby={titleId}>
+    <div className="sheet" role="dialog" aria-modal="true" aria-labelledby={headingId}>
       <button
         type="button"
         className="sheet__backdrop"
@@ -98,7 +95,7 @@ export function EntryForm({
           <button type="button" className="btn-text" onClick={onCancel}>
             取消
           </button>
-          <h2 id={titleId} className="sheet__title">
+          <h2 id={headingId} className="sheet__title">
             {mode === 'create' ? '写日记' : '编辑日记'}
           </h2>
           <button
@@ -122,39 +119,6 @@ export function EntryForm({
               value={date || initialDate}
               onChange={(e) => setDate(e.target.value)}
               autoComplete="off"
-            />
-          </label>
-
-          <label className="field" htmlFor={`${titleId}-input`}>
-            <span className="field__label">标题</span>
-            <input
-              id={`${titleId}-input`}
-              name="diary-title"
-              type="text"
-              value={title}
-              onChange={(e) => setTitle(e.target.value)}
-              placeholder="给这一刻起个名字"
-              autoComplete="off"
-              autoCorrect="off"
-              autoCapitalize="sentences"
-              spellCheck={false}
-              data-1p-ignore
-              data-lpignore="true"
-            />
-          </label>
-
-          <label className="field" htmlFor={contentId}>
-            <span className="field__label">正文</span>
-            <textarea
-              id={contentId}
-              name="diary-content"
-              value={content}
-              onChange={(e) => setContent(e.target.value)}
-              placeholder="写下今天的想法…"
-              rows={8}
-              autoComplete="off"
-              autoCorrect="on"
-              autoCapitalize="sentences"
             />
           </label>
 
@@ -192,6 +156,21 @@ export function EntryForm({
               />
             </div>
           </div>
+
+          <label className="field" htmlFor={contentId}>
+            <span className="field__label">内容</span>
+            <textarea
+              id={contentId}
+              name="diary-content"
+              value={content}
+              onChange={(e) => setContent(e.target.value)}
+              placeholder="写下今天的想法…"
+              rows={10}
+              autoComplete="off"
+              autoCorrect="on"
+              autoCapitalize="sentences"
+            />
+          </label>
 
           {mode === 'edit' && onDelete && (
             <button type="button" className="btn-danger" onClick={handleDelete}>

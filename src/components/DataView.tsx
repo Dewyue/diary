@@ -115,7 +115,7 @@ export function DataView({ store, onSelect, onReplace, onMerge }: Props) {
             type="search"
             value={filters.keyword}
             onChange={(e) => updateFilter('keyword', e.target.value)}
-            placeholder="匹配标题或正文"
+            placeholder="匹配内容"
           />
         </label>
 

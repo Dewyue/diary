@@ -37,24 +37,17 @@ export default function App() {
   }
 
   function handleSave(payload: {
-    title: string;
     content: string;
     tags: string[];
     date: string;
   }) {
     try {
       if (editor.mode === 'create') {
-        const entry = createEntry(
-          payload.date,
-          payload.title,
-          payload.content,
-          payload.tags,
-        );
+        const entry = createEntry(payload.date, payload.content, payload.tags);
         persist({ version: 1, entries: [...store.entries, entry] });
       } else if (editor.mode === 'edit') {
         const updated = updateEntry(
           editor.entry,
-          payload.title,
           payload.content,
           payload.tags,
           payload.date,
