@@ -1,4 +1,4 @@
-import { useEffect, useId, useState, type FormEvent, type KeyboardEvent } from 'react';
+import { useId, useState, type FormEvent, type KeyboardEvent } from 'react';
 import type { DiaryEntry } from '../types';
 import { normalizeTag } from '../storage';
 import { formatDisplayDate } from '../dateUtils';
@@ -35,14 +35,6 @@ export function EntryForm({
   const [date, setDate] = useState(entry?.date ?? initialDate);
   const [tags, setTags] = useState<string[]>(entry?.tags ?? []);
   const [tagInput, setTagInput] = useState('');
-
-  useEffect(() => {
-    const prev = document.body.style.overflow;
-    document.body.style.overflow = 'hidden';
-    return () => {
-      document.body.style.overflow = prev;
-    };
-  }, []);
 
   function addTag(raw: string) {
     const tag = normalizeTag(raw);
@@ -91,8 +83,17 @@ export function EntryForm({
 
   return (
     <div className="sheet" role="dialog" aria-modal="true" aria-labelledby={titleId}>
-      <div className="sheet__backdrop" onClick={onCancel} />
-      <form className="sheet__panel" onSubmit={handleSubmit}>
+      <button
+        type="button"
+        className="sheet__backdrop"
+        aria-label="关闭"
+        onClick={onCancel}
+      />
+      <form
+        className="sheet__panel"
+        onSubmit={handleSubmit}
+        autoComplete="off"
+      >
         <header className="sheet__header">
           <button type="button" className="btn-text" onClick={onCancel}>
             取消
@@ -116,9 +117,11 @@ export function EntryForm({
             <span className="field__label">日期</span>
             <input
               id={dateId}
+              name="diary-date"
               type="date"
               value={date || initialDate}
               onChange={(e) => setDate(e.target.value)}
+              autoComplete="off"
             />
           </label>
 
@@ -126,11 +129,17 @@ export function EntryForm({
             <span className="field__label">标题</span>
             <input
               id={`${titleId}-input`}
+              name="diary-title"
               type="text"
               value={title}
               onChange={(e) => setTitle(e.target.value)}
               placeholder="给这一刻起个名字"
-              autoFocus
+              autoComplete="off"
+              autoCorrect="off"
+              autoCapitalize="sentences"
+              spellCheck={false}
+              data-1p-ignore
+              data-lpignore="true"
             />
           </label>
 
@@ -138,10 +147,14 @@ export function EntryForm({
             <span className="field__label">正文</span>
             <textarea
               id={contentId}
+              name="diary-content"
               value={content}
               onChange={(e) => setContent(e.target.value)}
               placeholder="写下今天的想法…"
-              rows={10}
+              rows={8}
+              autoComplete="off"
+              autoCorrect="on"
+              autoCapitalize="sentences"
             />
           </label>
 
@@ -162,6 +175,7 @@ export function EntryForm({
               ))}
               <input
                 type="text"
+                name="diary-tag"
                 value={tagInput}
                 onChange={(e) => setTagInput(e.target.value)}
                 onKeyDown={handleTagKey}
@@ -169,6 +183,12 @@ export function EntryForm({
                   if (tagInput.trim()) addTag(tagInput);
                 }}
                 placeholder={tags.length ? '' : '回车或逗号添加'}
+                autoComplete="off"
+                autoCorrect="off"
+                autoCapitalize="none"
+                spellCheck={false}
+                data-1p-ignore
+                data-lpignore="true"
               />
             </div>
           </div>
