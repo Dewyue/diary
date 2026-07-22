@@ -7,22 +7,39 @@ import {
   saveStore,
   updateEntry,
 } from './storage';
+import {
+  isBackupDue,
+  loadBackupPrefs,
+  maybeAutoBackup,
+  runBackupExport,
+  type BackupPrefs,
+} from './backup';
 import { collectAllTags } from './search';
 import { BottomNav } from './components/BottomNav';
 import { TodayView } from './components/TodayView';
 import { CalendarView } from './components/CalendarView';
 import { DataView } from './components/DataView';
 import { EntryForm } from './components/EntryForm';
+import { BackupBanner } from './components/BackupBanner';
 import './styles.css';
 
 export default function App() {
   const [store, setStore] = useState<DiaryStore>(() => loadStore());
   const [tab, setTab] = useState<TabId>('today');
   const [editor, setEditor] = useState<EditorState>({ mode: 'closed' });
+  const [backupPrefs, setBackupPrefs] = useState<BackupPrefs>(() => loadBackupPrefs());
+  const [bannerSnoozed, setBannerSnoozed] = useState(false);
   const knownTags = useMemo(
     () => collectAllTags(store.entries),
     [store.entries],
   );
+
+  const showBackupBanner =
+    !bannerSnoozed &&
+    backupPrefs.enabled &&
+    store.entries.length > 0 &&
+    isBackupDue(backupPrefs) &&
+    editor.mode === 'closed';
 
   useEffect(() => {
     saveStore(store);
@@ -47,9 +64,10 @@ export default function App() {
     date: string;
   }) {
     try {
+      let nextStore = store;
       if (editor.mode === 'create') {
         const entry = createEntry(payload.date, payload.content, payload.tags);
-        persist({ version: 1, entries: [...store.entries, entry] });
+        nextStore = { version: 1, entries: [...store.entries, entry] };
       } else if (editor.mode === 'edit') {
         const updated = updateEntry(
           editor.entry,
@@ -57,12 +75,19 @@ export default function App() {
           payload.tags,
           payload.date,
         );
-        persist({
+        nextStore = {
           version: 1,
           entries: store.entries.map((e) => (e.id === updated.id ? updated : e)),
-        });
+        };
       }
+      persist(nextStore);
       setEditor({ mode: 'closed' });
+
+      const auto = maybeAutoBackup(nextStore, backupPrefs);
+      if (auto) {
+        setBackupPrefs(auto);
+        setBannerSnoozed(false);
+      }
     } catch (err) {
       window.alert(err instanceof Error ? err.message : '保存失败');
     }
@@ -78,9 +103,21 @@ export default function App() {
     setEditor({ mode: 'closed' });
   }
 
+  function handleBannerExport() {
+    const next = runBackupExport(store, backupPrefs);
+    setBackupPrefs(next);
+    setBannerSnoozed(false);
+  }
+
   return (
     <div className="app">
       <main className="app__main">
+        <BackupBanner
+          visible={showBackupBanner}
+          onExport={handleBannerExport}
+          onLater={() => setBannerSnoozed(true)}
+        />
+
         {tab === 'today' && (
           <TodayView
             entries={store.entries}
@@ -98,6 +135,8 @@ export default function App() {
         {tab === 'data' && (
           <DataView
             store={store}
+            backupPrefs={backupPrefs}
+            onBackupPrefsChange={setBackupPrefs}
             onSelect={handleSelect}
             onReplace={(incoming) => persist(incoming)}
             onMerge={(incoming) => persist(mergeStores(store, incoming))}

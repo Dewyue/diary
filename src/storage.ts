@@ -133,14 +133,16 @@ export function mergeStores(current: DiaryStore, incoming: DiaryStore): DiarySto
 }
 
 export function exportStoreToFile(store: DiaryStore): void {
-  const stamp = new Date().toISOString().slice(0, 10).replace(/-/g, '');
+  const now = new Date();
+  const date = now.toISOString().slice(0, 10).replace(/-/g, '');
+  const time = `${String(now.getHours()).padStart(2, '0')}${String(now.getMinutes()).padStart(2, '0')}`;
   const blob = new Blob([JSON.stringify(store, null, 2)], {
     type: 'application/json',
   });
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = url;
-  a.download = `diary-${stamp}.json`;
+  a.download = `diary-${date}-${time}.json`;
   a.click();
   URL.revokeObjectURL(url);
 }

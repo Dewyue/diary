@@ -5,12 +5,22 @@ import {
   countUniqueDays,
   filterEntries,
 } from '../search';
-import { exportStoreToFile, readStoreFromFile } from '../storage';
+import { readStoreFromFile } from '../storage';
+import {
+  formatBackupTime,
+  intervalLabel,
+  runBackupExport,
+  saveBackupPrefs,
+  type BackupIntervalDays,
+  type BackupPrefs,
+} from '../backup';
 import { formatDisplayDate } from '../dateUtils';
 import { EntryList } from './EntryList';
 
 type Props = {
   store: DiaryStore;
+  backupPrefs: BackupPrefs;
+  onBackupPrefsChange: (prefs: BackupPrefs) => void;
   onSelect: (entry: DiaryEntry) => void;
   onReplace: (store: DiaryStore) => void;
   onMerge: (store: DiaryStore) => void;
@@ -24,7 +34,16 @@ const emptyFilters: SearchFilters = {
   tags: [],
 };
 
-export function DataView({ store, onSelect, onReplace, onMerge }: Props) {
+const INTERVALS: BackupIntervalDays[] = [1, 3, 7];
+
+export function DataView({
+  store,
+  backupPrefs,
+  onBackupPrefsChange,
+  onSelect,
+  onReplace,
+  onMerge,
+}: Props) {
   const [filters, setFilters] = useState<SearchFilters>(emptyFilters);
   const [tagDraft, setTagDraft] = useState('');
   const [message, setMessage] = useState<string | null>(null);
@@ -99,6 +118,19 @@ export function DataView({ store, onSelect, onReplace, onMerge }: Props) {
   function startImport(mode: 'merge' | 'replace') {
     pendingMode.current = mode;
     fileRef.current?.click();
+  }
+
+  function handleManualExport() {
+    const next = runBackupExport(store, backupPrefs);
+    onBackupPrefsChange(next);
+    setMessage('已导出备份文件');
+    setError(null);
+  }
+
+  function updateBackup(partial: Partial<BackupPrefs>) {
+    const next = { ...backupPrefs, ...partial };
+    saveBackupPrefs(next);
+    onBackupPrefsChange(next);
   }
 
   return (
@@ -235,15 +267,47 @@ export function DataView({ store, onSelect, onReplace, onMerge }: Props) {
       )}
 
       <div className="panel">
+        <h2 className="panel__title">自动备份</h2>
+        <p className="hint hint--spaced">
+          开启后，到期时保存日记会自动下载 JSON；打开应用也会提醒你导出。
+        </p>
+        <label className="switch-row">
+          <span>启用自动备份</span>
+          <input
+            type="checkbox"
+            checked={backupPrefs.enabled}
+            onChange={(e) => updateBackup({ enabled: e.target.checked })}
+          />
+        </label>
+        <div className="field">
+          <span className="field__label">提醒间隔</span>
+          <div className="segmented">
+            {INTERVALS.map((days) => (
+              <button
+                key={days}
+                type="button"
+                className={`segmented__item${backupPrefs.intervalDays === days ? ' is-active' : ''}`}
+                onClick={() => updateBackup({ intervalDays: days })}
+                disabled={!backupPrefs.enabled}
+              >
+                {intervalLabel(days)}
+              </button>
+            ))}
+          </div>
+        </div>
+        <p className="hint">上次备份：{formatBackupTime(backupPrefs.lastBackupAt)}</p>
+      </div>
+
+      <div className="panel">
         <h2 className="panel__title">备份</h2>
         <p className="hint hint--spaced">
-          数据保存在本机浏览器，请定期导出备份。
+          数据保存在本机浏览器，请把导出的 JSON 存到网盘或电脑。
         </p>
         <div className="import-actions">
           <button
             type="button"
             className="btn-block btn-block--accent"
-            onClick={() => exportStoreToFile(store)}
+            onClick={handleManualExport}
           >
             导出 JSON
           </button>
