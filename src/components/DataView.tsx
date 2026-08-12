@@ -37,6 +37,7 @@ const emptyFilters: SearchFilters = {
 };
 
 const INTERVALS: BackupIntervalDays[] = [1, 3, 7];
+const LONG_PRESS_MS = 480;
 
 export function DataView({
   store,
@@ -50,23 +51,15 @@ export function DataView({
 }: Props) {
   const [filters, setFilters] = useState<SearchFilters>(emptyFilters);
   const [tagDraft, setTagDraft] = useState('');
-  const [editingTag, setEditingTag] = useState<string | null>(null);
-  const [editDraft, setEditDraft] = useState('');
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
   const pendingMode = useRef<'merge' | 'replace' | null>(null);
+  const longPressTimer = useRef<number | null>(null);
+  const longPressTriggered = useRef(false);
+  const longPressTag = useRef<string | null>(null);
 
   const allTags = useMemo(() => collectAllTags(store.entries), [store.entries]);
-  const tagCounts = useMemo(() => {
-    const map = new Map<string, number>();
-    for (const entry of store.entries) {
-      for (const tag of entry.tags) {
-        map.set(tag, (map.get(tag) ?? 0) + 1);
-      }
-    }
-    return map;
-  }, [store.entries]);
   const isSearching = Boolean(
     filters.keyword.trim() ||
       filters.year.trim() ||
@@ -103,49 +96,39 @@ export function DataView({
     setTagDraft('');
   }
 
-  function startRenameTag(tag: string) {
-    setEditingTag(tag);
-    setEditDraft(tag);
-    setMessage(null);
-    setError(null);
+  function clearLongPress() {
+    if (longPressTimer.current != null) {
+      window.clearTimeout(longPressTimer.current);
+      longPressTimer.current = null;
+    }
   }
 
-  function cancelRenameTag() {
-    setEditingTag(null);
-    setEditDraft('');
+  function startTagLongPress(tag: string) {
+    longPressTriggered.current = false;
+    longPressTag.current = tag;
+    clearLongPress();
+    longPressTimer.current = window.setTimeout(() => {
+      longPressTriggered.current = true;
+      const from = longPressTag.current;
+      if (!from) return;
+      const raw = window.prompt('改名', from);
+      if (raw == null) return;
+      const next = normalizeTag(raw);
+      if (!next || next === from) return;
+      onRenameTag(from, next);
+      setFilters((prev) => ({
+        ...prev,
+        tags: [...new Set(prev.tags.map((t) => (t === from ? next : t)))],
+      }));
+    }, LONG_PRESS_MS);
   }
 
-  function commitRenameTag() {
-    if (!editingTag) return;
-    const next = normalizeTag(editDraft);
-    if (!next) {
-      setError('标签名不能为空');
+  function handleTagClick(tag: string) {
+    if (longPressTriggered.current) {
+      longPressTriggered.current = false;
       return;
     }
-    if (next === editingTag) {
-      cancelRenameTag();
-      return;
-    }
-    const count = tagCounts.get(editingTag) ?? 0;
-    const merging = allTags.includes(next) && next !== editingTag;
-    const ok = window.confirm(
-      merging
-        ? `将「${editingTag}」合并为「${next}」，会影响 ${count} 条日记，确定？`
-        : `将「${editingTag}」改为「${next}」，会影响 ${count} 条日记，确定？`,
-    );
-    if (!ok) return;
-    onRenameTag(editingTag, next);
-    setFilters((prev) => ({
-      ...prev,
-      tags: prev.tags.map((tag) => (tag === editingTag ? next : tag)),
-    }));
-    setMessage(
-      merging
-        ? `已将「${editingTag}」合并为「${next}」`
-        : `已将「${editingTag}」改为「${next}」`,
-    );
-    setError(null);
-    cancelRenameTag();
+    toggleTag(tag);
   }
 
   async function handleFile(file: File | undefined) {
@@ -266,8 +249,13 @@ export function DataView({
                   <button
                     key={tag}
                     type="button"
-                    className={`tag${filters.tags.includes(tag) ? ' is-active' : ''}`}
-                    onClick={() => toggleTag(tag)}
+                    className={`tag tag--filter${filters.tags.includes(tag) ? ' is-active' : ''}`}
+                    onClick={() => handleTagClick(tag)}
+                    onPointerDown={() => startTagLongPress(tag)}
+                    onPointerUp={clearLongPress}
+                    onPointerLeave={clearLongPress}
+                    onPointerCancel={clearLongPress}
+                    onContextMenu={(e) => e.preventDefault()}
                   >
                     {tag}
                   </button>
@@ -285,15 +273,12 @@ export function DataView({
                     addTagFilter();
                   }
                 }}
-                placeholder="输入标签筛选"
+                placeholder="标签"
               />
               <button type="button" className="btn-ghost btn-ghost--match" onClick={addTagFilter}>
                 添加
               </button>
             </div>
-            {filters.tags.length > 0 && (
-              <p className="hint">{filters.tags.join('、')}</p>
-            )}
           </div>
 
           {isSearching && (
@@ -327,76 +312,6 @@ export function DataView({
           )}
         </div>
       )}
-
-      <div className="panel">
-        <h2 className="panel__title">标签管理</h2>
-        <div className="panel__stack">
-          {allTags.length === 0 ? (
-            <p className="hint">暂无标签</p>
-          ) : (
-            <ul className="tag-manage">
-              {allTags.map((tag) => {
-                const count = tagCounts.get(tag) ?? 0;
-                const isEditing = editingTag === tag;
-                return (
-                  <li key={tag} className="tag-manage__row">
-                    {isEditing ? (
-                      <>
-                        <input
-                          className="tag-manage__input"
-                          value={editDraft}
-                          onChange={(e) => setEditDraft(e.target.value)}
-                          onKeyDown={(e) => {
-                            if (e.key === 'Enter') {
-                              e.preventDefault();
-                              commitRenameTag();
-                            } else if (e.key === 'Escape') {
-                              e.preventDefault();
-                              cancelRenameTag();
-                            }
-                          }}
-                          autoFocus
-                          aria-label={`重命名标签 ${tag}`}
-                        />
-                        <div className="tag-manage__actions">
-                          <button
-                            type="button"
-                            className="btn-text btn-text--accent"
-                            onClick={commitRenameTag}
-                          >
-                            保存
-                          </button>
-                          <button type="button" className="btn-text" onClick={cancelRenameTag}>
-                            取消
-                          </button>
-                        </div>
-                      </>
-                    ) : (
-                      <>
-                        <div className="tag-manage__info">
-                          <span className="tag">{tag}</span>
-                          <span className="tag-manage__count">{count}</span>
-                        </div>
-                        <button
-                          type="button"
-                          className="btn-ghost"
-                          onClick={() => startRenameTag(tag)}
-                        >
-                          改名
-                        </button>
-                      </>
-                    )}
-                  </li>
-                );
-              })}
-            </ul>
-          )}
-          {error && editingTag && <p className="feedback feedback--err">{error}</p>}
-          {message && !editingTag && (
-            <p className="feedback feedback--ok">{message}</p>
-          )}
-        </div>
-      </div>
 
       <div className="panel">
         <h2 className="panel__title">自动备份</h2>
