@@ -15,9 +15,10 @@ type Props = {
   entries: DiaryEntry[];
   knownTags: string[];
   draftingDate: string | null;
+  editingEntry: DiaryEntry | null;
   onCreate: (date: string) => void;
-  onCancelDraft: () => void;
-  onSaveDraft: (payload: {
+  onCancelEditor: () => void;
+  onSaveEditor: (payload: {
     content: string;
     tags: string[];
     date: string;
@@ -49,9 +50,10 @@ export function CalendarView({
   entries,
   knownTags,
   draftingDate,
+  editingEntry,
   onCreate,
-  onCancelDraft,
-  onSaveDraft,
+  onCancelEditor,
+  onSaveEditor,
   onSelect,
   onDelete,
 }: Props) {
@@ -65,6 +67,8 @@ export function CalendarView({
   const longPressTimer = useRef<number | null>(null);
   const longPressTriggered = useRef(false);
   const isDrafting = draftingDate === selectedDate;
+  const isEditingHere = Boolean(editingEntry && editingEntry.date === selectedDate);
+  const isEditing = isDrafting || isEditingHere;
 
   useEffect(() => {
     if (!draftingDate) return;
@@ -74,9 +78,19 @@ export function CalendarView({
     setMonthIndex(m - 1);
   }, [draftingDate]);
 
+  useEffect(() => {
+    if (!editingEntry) return;
+    const [y, m] = editingEntry.date.split('-').map(Number);
+    setSelectedDate(editingEntry.date);
+    setYear(y);
+    setMonthIndex(m - 1);
+  }, [editingEntry]);
+
   const marked = useMemo(() => datesWithEntries(entries), [entries]);
   const grid = useMemo(() => buildMonthGrid(year, monthIndex), [year, monthIndex]);
-  const dayEntries = entriesForDate(entries, selectedDate);
+  const dayEntries = entriesForDate(entries, selectedDate).filter(
+    (entry) => entry.id !== editingEntry?.id,
+  );
   const currentYear = now.getFullYear();
   const years = useMemo(() => yearOptions(entries, currentYear), [entries, currentYear]);
 
@@ -228,7 +242,7 @@ export function CalendarView({
       <div className="day-panel">
         <div className="day-panel__header">
           <h2 className="day-panel__title">{formatDisplayDate(selectedDate)}</h2>
-          {!isDrafting && (
+          {!isEditing && (
             <button
               type="button"
               className="btn-primary btn-primary--sm"
@@ -242,13 +256,24 @@ export function CalendarView({
           <InlineComposer
             date={selectedDate}
             knownTags={knownTags}
-            onSave={onSaveDraft}
-            onCancel={onCancelDraft}
+            onSave={onSaveEditor}
+            onCancel={onCancelEditor}
+          />
+        )}
+        {isEditingHere && editingEntry && (
+          <InlineComposer
+            key={editingEntry.id}
+            date={editingEntry.date}
+            initialContent={editingEntry.content}
+            initialTags={editingEntry.tags}
+            knownTags={knownTags}
+            onSave={onSaveEditor}
+            onCancel={onCancelEditor}
           />
         )}
         <EntryList
           entries={dayEntries}
-          emptyText={isDrafting ? '' : '暂无'}
+          emptyText={isEditing ? '' : '暂无'}
           onSelect={onSelect}
           onDelete={onDelete}
         />

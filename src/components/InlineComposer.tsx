@@ -3,6 +3,8 @@ import { normalizeTag } from '../storage';
 
 type Props = {
   date: string;
+  initialContent?: string;
+  initialTags?: string[];
   knownTags?: string[];
   onSave: (payload: { content: string; tags: string[]; date: string }) => void;
   onCancel: () => void;
@@ -10,6 +12,8 @@ type Props = {
 
 export function InlineComposer({
   date,
+  initialContent = '',
+  initialTags = [],
   knownTags = [],
   onSave,
   onCancel,
@@ -17,13 +21,17 @@ export function InlineComposer({
   const contentId = useId();
   const tagId = useId();
   const textareaRef = useRef<HTMLTextAreaElement>(null);
-  const [content, setContent] = useState('');
-  const [tags, setTags] = useState<string[]>([]);
+  const [content, setContent] = useState(initialContent);
+  const [tags, setTags] = useState<string[]>(initialTags);
   const [tagInput, setTagInput] = useState('');
 
   useEffect(() => {
     const id = window.requestAnimationFrame(() => {
-      textareaRef.current?.focus();
+      const el = textareaRef.current;
+      if (!el) return;
+      el.focus();
+      const len = el.value.length;
+      el.setSelectionRange(len, len);
     });
     return () => window.cancelAnimationFrame(id);
   }, []);
@@ -53,7 +61,7 @@ export function InlineComposer({
   function handleSubmit(e?: FormEvent) {
     e?.preventDefault();
     if (!content.trim()) {
-      onCancel();
+      window.alert('请填写内容');
       return;
     }
     const finalTags = tagInput.trim()

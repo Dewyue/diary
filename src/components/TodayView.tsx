@@ -14,9 +14,10 @@ type Props = {
   entries: DiaryEntry[];
   knownTags: string[];
   draftingDate: string | null;
+  editingEntry: DiaryEntry | null;
   onCreate: (date: string) => void;
-  onCancelDraft: () => void;
-  onSaveDraft: (payload: {
+  onCancelEditor: () => void;
+  onSaveEditor: (payload: {
     content: string;
     tags: string[];
     date: string;
@@ -40,18 +41,23 @@ export function TodayView({
   entries,
   knownTags,
   draftingDate,
+  editingEntry,
   onCreate,
-  onCancelDraft,
-  onSaveDraft,
+  onCancelEditor,
+  onSaveEditor,
   onSelect,
   onDelete,
 }: Props) {
   const today = todayISO();
   const [viewDate, setViewDate] = useState(today);
-  const dayEntries = entriesForDate(entries, viewDate);
   const offset = dayOffsetFromToday(viewDate);
   const isToday = offset === 0;
   const isDrafting = draftingDate === viewDate;
+  const isEditingHere = Boolean(editingEntry && editingEntry.date === viewDate);
+  const isEditing = isDrafting || isEditingHere;
+  const dayEntries = entriesForDate(entries, viewDate).filter(
+    (entry) => entry.id !== editingEntry?.id,
+  );
 
   const swipeRef = useRef<{
     id: number;
@@ -64,13 +70,17 @@ export function TodayView({
     if (draftingDate) setViewDate(draftingDate);
   }, [draftingDate]);
 
+  useEffect(() => {
+    if (editingEntry) setViewDate(editingEntry.date);
+  }, [editingEntry]);
+
   function goBy(delta: number) {
-    if (isDrafting) return;
+    if (isEditing) return;
     setViewDate((prev) => shiftDay(prev, delta));
   }
 
   function handlePointerDown(e: ReactPointerEvent<HTMLElement>) {
-    if (isDrafting) return;
+    if (isEditing) return;
     if (e.pointerType === 'mouse' && e.button !== 0) return;
     swipeRef.current = {
       id: e.pointerId,
@@ -107,7 +117,7 @@ export function TodayView({
 
   return (
     <section
-      className={`view view--day${isDrafting ? ' is-drafting' : ''}`}
+      className={`view view--day${isEditing ? ' is-drafting' : ''}`}
       onPointerDown={handlePointerDown}
       onPointerMove={handlePointerMove}
       onPointerUp={handlePointerUp}
@@ -116,7 +126,7 @@ export function TodayView({
       <header className="page-header">
         <div className="page-header__row">
           <p className="eyebrow">{relativeDayLabel(offset)}</p>
-          {!isToday && !isDrafting && (
+          {!isToday && !isEditing && (
             <button
               type="button"
               className="btn-ghost btn-ghost--sm"
@@ -137,19 +147,30 @@ export function TodayView({
           <InlineComposer
             date={viewDate}
             knownTags={knownTags}
-            onSave={onSaveDraft}
-            onCancel={onCancelDraft}
+            onSave={onSaveEditor}
+            onCancel={onCancelEditor}
+          />
+        )}
+        {isEditingHere && editingEntry && (
+          <InlineComposer
+            key={editingEntry.id}
+            date={editingEntry.date}
+            initialContent={editingEntry.content}
+            initialTags={editingEntry.tags}
+            knownTags={knownTags}
+            onSave={onSaveEditor}
+            onCancel={onCancelEditor}
           />
         )}
         <EntryList
           entries={dayEntries}
-          emptyText={isDrafting ? '' : '暂无'}
+          emptyText={isEditing ? '' : '暂无'}
           onSelect={onSelect}
           onDelete={onDelete}
         />
       </div>
 
-      {!isDrafting && (
+      {!isEditing && (
         <button
           type="button"
           className="fab"

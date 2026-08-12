@@ -16,13 +16,22 @@ import {
 } from '../backup';
 import { formatDisplayDate } from '../dateUtils';
 import { EntryList } from './EntryList';
+import { InlineComposer } from './InlineComposer';
 
 type Props = {
   store: DiaryStore;
   backupPrefs: BackupPrefs;
   onBackupPrefsChange: (prefs: BackupPrefs) => void;
+  editingEntry: DiaryEntry | null;
+  knownTags: string[];
   onSelect: (entry: DiaryEntry) => void;
   onDelete: (entry: DiaryEntry) => void;
+  onCancelEditor: () => void;
+  onSaveEditor: (payload: {
+    content: string;
+    tags: string[];
+    date: string;
+  }) => void;
   onReplace: (store: DiaryStore) => void;
   onMerge: (store: DiaryStore) => void;
   onRenameTag: (from: string, to: string) => void;
@@ -43,8 +52,12 @@ export function DataView({
   store,
   backupPrefs,
   onBackupPrefsChange,
+  editingEntry,
+  knownTags,
   onSelect,
   onDelete,
+  onCancelEditor,
+  onSaveEditor,
   onReplace,
   onMerge,
   onRenameTag,
@@ -301,12 +314,28 @@ export function DataView({
 
       {isSearching && (
         <div className="search-results">
-          {results.map((entry) => (
-            <div key={entry.id} className="search-result">
-              <p className="search-result__date">{formatDisplayDate(entry.date)}</p>
-              <EntryList entries={[entry]} onSelect={onSelect} onDelete={onDelete} />
+          {editingEntry && results.some((entry) => entry.id === editingEntry.id) && (
+            <div className="search-result">
+              <p className="search-result__date">{formatDisplayDate(editingEntry.date)}</p>
+              <InlineComposer
+                key={editingEntry.id}
+                date={editingEntry.date}
+                initialContent={editingEntry.content}
+                initialTags={editingEntry.tags}
+                knownTags={knownTags}
+                onSave={onSaveEditor}
+                onCancel={onCancelEditor}
+              />
             </div>
-          ))}
+          )}
+          {results
+            .filter((entry) => entry.id !== editingEntry?.id)
+            .map((entry) => (
+              <div key={entry.id} className="search-result">
+                <p className="search-result__date">{formatDisplayDate(entry.date)}</p>
+                <EntryList entries={[entry]} onSelect={onSelect} onDelete={onDelete} />
+              </div>
+            ))}
           {results.length === 0 && (
             <p className="empty-hint">暂无</p>
           )}

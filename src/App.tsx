@@ -20,7 +20,6 @@ import { BottomNav } from './components/BottomNav';
 import { TodayView } from './components/TodayView';
 import { CalendarView } from './components/CalendarView';
 import { DataView } from './components/DataView';
-import { EntryForm } from './components/EntryForm';
 import { BackupBanner } from './components/BackupBanner';
 import './styles.css';
 
@@ -36,6 +35,7 @@ export default function App() {
   );
 
   const draftingDate = editor.mode === 'create' ? editor.date : null;
+  const editingEntry = editor.mode === 'edit' ? editor.entry : null;
 
   const showBackupBanner =
     !bannerSnoozed &&
@@ -112,6 +112,10 @@ export default function App() {
     setBannerSnoozed(false);
   }
 
+  function closeEditor() {
+    setEditor({ mode: 'closed' });
+  }
+
   return (
     <div className="app">
       <main className="app__main">
@@ -126,9 +130,10 @@ export default function App() {
             entries={store.entries}
             knownTags={knownTags}
             draftingDate={draftingDate}
+            editingEntry={editingEntry}
             onCreate={handleCreate}
-            onCancelDraft={() => setEditor({ mode: 'closed' })}
-            onSaveDraft={handleSave}
+            onCancelEditor={closeEditor}
+            onSaveEditor={handleSave}
             onSelect={handleSelect}
             onDelete={handleDelete}
           />
@@ -138,9 +143,10 @@ export default function App() {
             entries={store.entries}
             knownTags={knownTags}
             draftingDate={draftingDate}
+            editingEntry={editingEntry}
             onCreate={handleCreate}
-            onCancelDraft={() => setEditor({ mode: 'closed' })}
-            onSaveDraft={handleSave}
+            onCancelEditor={closeEditor}
+            onSaveEditor={handleSave}
             onSelect={handleSelect}
             onDelete={handleDelete}
           />
@@ -150,8 +156,12 @@ export default function App() {
             store={store}
             backupPrefs={backupPrefs}
             onBackupPrefsChange={setBackupPrefs}
+            editingEntry={editingEntry}
+            knownTags={knownTags}
             onSelect={handleSelect}
             onDelete={handleDelete}
+            onCancelEditor={closeEditor}
+            onSaveEditor={handleSave}
             onReplace={(incoming) => persist(incoming)}
             onMerge={(incoming) => persist(mergeStores(store, incoming))}
             onRenameTag={(from, to) => persist(renameTag(store, from, to))}
@@ -162,21 +172,10 @@ export default function App() {
       <BottomNav
         active={tab}
         onChange={(next) => {
-          if (editor.mode === 'create') setEditor({ mode: 'closed' });
+          if (editor.mode !== 'closed') closeEditor();
           setTab(next);
         }}
       />
-
-      {editor.mode === 'edit' && (
-        <EntryForm
-          mode="edit"
-          date={editor.entry.date}
-          entry={editor.entry}
-          knownTags={knownTags}
-          onSave={handleSave}
-          onCancel={() => setEditor({ mode: 'closed' })}
-        />
-      )}
     </div>
   );
 }
