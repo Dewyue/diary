@@ -1,4 +1,4 @@
-import { useRef, useState, type PointerEvent as ReactPointerEvent } from 'react';
+import { useEffect, useRef, useState, type PointerEvent as ReactPointerEvent } from 'react';
 import type { DiaryEntry } from '../types';
 import { entriesForDate } from '../search';
 import {
@@ -8,10 +8,19 @@ import {
   todayISO,
 } from '../dateUtils';
 import { EntryList } from './EntryList';
+import { InlineComposer } from './InlineComposer';
 
 type Props = {
   entries: DiaryEntry[];
+  knownTags: string[];
+  draftingDate: string | null;
   onCreate: (date: string) => void;
+  onCancelDraft: () => void;
+  onSaveDraft: (payload: {
+    content: string;
+    tags: string[];
+    date: string;
+  }) => void;
   onSelect: (entry: DiaryEntry) => void;
   onDelete: (entry: DiaryEntry) => void;
 };
@@ -27,12 +36,22 @@ function relativeDayLabel(offset: number): string {
   return `${offset} 天后`;
 }
 
-export function TodayView({ entries, onCreate, onSelect, onDelete }: Props) {
+export function TodayView({
+  entries,
+  knownTags,
+  draftingDate,
+  onCreate,
+  onCancelDraft,
+  onSaveDraft,
+  onSelect,
+  onDelete,
+}: Props) {
   const today = todayISO();
   const [viewDate, setViewDate] = useState(today);
   const dayEntries = entriesForDate(entries, viewDate);
   const offset = dayOffsetFromToday(viewDate);
   const isToday = offset === 0;
+  const isDrafting = draftingDate === viewDate;
 
   const swipeRef = useRef<{
     id: number;
@@ -41,11 +60,17 @@ export function TodayView({ entries, onCreate, onSelect, onDelete }: Props) {
     locked: 'h' | 'v' | null;
   } | null>(null);
 
+  useEffect(() => {
+    if (draftingDate) setViewDate(draftingDate);
+  }, [draftingDate]);
+
   function goBy(delta: number) {
+    if (isDrafting) return;
     setViewDate((prev) => shiftDay(prev, delta));
   }
 
   function handlePointerDown(e: ReactPointerEvent<HTMLElement>) {
+    if (isDrafting) return;
     if (e.pointerType === 'mouse' && e.button !== 0) return;
     swipeRef.current = {
       id: e.pointerId,
@@ -82,7 +107,7 @@ export function TodayView({ entries, onCreate, onSelect, onDelete }: Props) {
 
   return (
     <section
-      className="view view--day"
+      className={`view view--day${isDrafting ? ' is-drafting' : ''}`}
       onPointerDown={handlePointerDown}
       onPointerMove={handlePointerMove}
       onPointerUp={handlePointerUp}
@@ -91,7 +116,7 @@ export function TodayView({ entries, onCreate, onSelect, onDelete }: Props) {
       <header className="page-header">
         <div className="page-header__row">
           <p className="eyebrow">{relativeDayLabel(offset)}</p>
-          {!isToday && (
+          {!isToday && !isDrafting && (
             <button
               type="button"
               className="btn-ghost btn-ghost--sm"
@@ -108,22 +133,32 @@ export function TodayView({ entries, onCreate, onSelect, onDelete }: Props) {
       </header>
 
       <div className="stack-sm">
+        {isDrafting && (
+          <InlineComposer
+            date={viewDate}
+            knownTags={knownTags}
+            onSave={onSaveDraft}
+            onCancel={onCancelDraft}
+          />
+        )}
         <EntryList
           entries={dayEntries}
-          emptyText="暂无"
+          emptyText={isDrafting ? '' : '暂无'}
           onSelect={onSelect}
           onDelete={onDelete}
         />
       </div>
 
-      <button
-        type="button"
-        className="fab"
-        aria-label="新建日记"
-        onClick={() => onCreate(viewDate)}
-      >
-        +
-      </button>
+      {!isDrafting && (
+        <button
+          type="button"
+          className="fab"
+          aria-label="新建日记"
+          onClick={() => onCreate(viewDate)}
+        >
+          +
+        </button>
+      )}
     </section>
   );
 }

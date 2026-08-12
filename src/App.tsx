@@ -35,6 +35,8 @@ export default function App() {
     [store.entries],
   );
 
+  const draftingDate = editor.mode === 'create' ? editor.date : null;
+
   const showBackupBanner =
     !bannerSnoozed &&
     backupPrefs.enabled &&
@@ -122,7 +124,11 @@ export default function App() {
         {tab === 'today' && (
           <TodayView
             entries={store.entries}
+            knownTags={knownTags}
+            draftingDate={draftingDate}
             onCreate={handleCreate}
+            onCancelDraft={() => setEditor({ mode: 'closed' })}
+            onSaveDraft={handleSave}
             onSelect={handleSelect}
             onDelete={handleDelete}
           />
@@ -130,7 +136,11 @@ export default function App() {
         {tab === 'calendar' && (
           <CalendarView
             entries={store.entries}
+            knownTags={knownTags}
+            draftingDate={draftingDate}
             onCreate={handleCreate}
+            onCancelDraft={() => setEditor({ mode: 'closed' })}
+            onSaveDraft={handleSave}
             onSelect={handleSelect}
             onDelete={handleDelete}
           />
@@ -149,17 +159,14 @@ export default function App() {
         )}
       </main>
 
-      <BottomNav active={tab} onChange={setTab} />
+      <BottomNav
+        active={tab}
+        onChange={(next) => {
+          if (editor.mode === 'create') setEditor({ mode: 'closed' });
+          setTab(next);
+        }}
+      />
 
-      {editor.mode === 'create' && (
-        <EntryForm
-          mode="create"
-          date={editor.date}
-          knownTags={knownTags}
-          onSave={handleSave}
-          onCancel={() => setEditor({ mode: 'closed' })}
-        />
-      )}
       {editor.mode === 'edit' && (
         <EntryForm
           mode="edit"

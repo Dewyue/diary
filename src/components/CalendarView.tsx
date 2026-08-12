@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import type { DiaryEntry } from '../types';
 import { datesWithEntries, entriesForDate } from '../search';
 import {
@@ -9,10 +9,19 @@ import {
 } from '../dateUtils';
 import { EntryList } from './EntryList';
 import { CalendarScrollPreview } from './CalendarScrollPreview';
+import { InlineComposer } from './InlineComposer';
 
 type Props = {
   entries: DiaryEntry[];
+  knownTags: string[];
+  draftingDate: string | null;
   onCreate: (date: string) => void;
+  onCancelDraft: () => void;
+  onSaveDraft: (payload: {
+    content: string;
+    tags: string[];
+    date: string;
+  }) => void;
   onSelect: (entry: DiaryEntry) => void;
   onDelete: (entry: DiaryEntry) => void;
 };
@@ -36,7 +45,16 @@ function yearOptions(entries: DiaryEntry[], currentYear: number): number[] {
   return years;
 }
 
-export function CalendarView({ entries, onCreate, onSelect, onDelete }: Props) {
+export function CalendarView({
+  entries,
+  knownTags,
+  draftingDate,
+  onCreate,
+  onCancelDraft,
+  onSaveDraft,
+  onSelect,
+  onDelete,
+}: Props) {
   const today = todayISO();
   const now = new Date();
   const [year, setYear] = useState(now.getFullYear());
@@ -46,6 +64,15 @@ export function CalendarView({ entries, onCreate, onSelect, onDelete }: Props) {
 
   const longPressTimer = useRef<number | null>(null);
   const longPressTriggered = useRef(false);
+  const isDrafting = draftingDate === selectedDate;
+
+  useEffect(() => {
+    if (!draftingDate) return;
+    const [y, m] = draftingDate.split('-').map(Number);
+    setSelectedDate(draftingDate);
+    setYear(y);
+    setMonthIndex(m - 1);
+  }, [draftingDate]);
 
   const marked = useMemo(() => datesWithEntries(entries), [entries]);
   const grid = useMemo(() => buildMonthGrid(year, monthIndex), [year, monthIndex]);
@@ -201,17 +228,27 @@ export function CalendarView({ entries, onCreate, onSelect, onDelete }: Props) {
       <div className="day-panel">
         <div className="day-panel__header">
           <h2 className="day-panel__title">{formatDisplayDate(selectedDate)}</h2>
-          <button
-            type="button"
-            className="btn-primary btn-primary--sm"
-            onClick={() => onCreate(selectedDate)}
-          >
-            新建
-          </button>
+          {!isDrafting && (
+            <button
+              type="button"
+              className="btn-primary btn-primary--sm"
+              onClick={() => onCreate(selectedDate)}
+            >
+              新建
+            </button>
+          )}
         </div>
+        {isDrafting && (
+          <InlineComposer
+            date={selectedDate}
+            knownTags={knownTags}
+            onSave={onSaveDraft}
+            onCancel={onCancelDraft}
+          />
+        )}
         <EntryList
           entries={dayEntries}
-          emptyText="暂无"
+          emptyText={isDrafting ? '' : '暂无'}
           onSelect={onSelect}
           onDelete={onDelete}
         />

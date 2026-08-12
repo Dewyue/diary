@@ -53,6 +53,7 @@ export function EntryList({
   }
 
   if (entries.length === 0) {
+    if (!emptyText) return null;
     return <p className="empty-hint">{emptyText}</p>;
   }
 
