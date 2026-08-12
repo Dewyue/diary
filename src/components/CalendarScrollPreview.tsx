@@ -102,8 +102,7 @@ export function CalendarScrollPreview({
       <div className="cal-preview__panel">
         <header className="cal-preview__header">
           <div>
-            <p className="eyebrow">连续月份</p>
-            <h2 className="cal-preview__title">上下滑动浏览</h2>
+            <h2 className="cal-preview__title">月份</h2>
           </div>
           <button type="button" className="btn-text btn-text--accent" onClick={onClose}>
             完成

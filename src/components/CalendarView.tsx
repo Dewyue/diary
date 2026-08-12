@@ -14,6 +14,7 @@ type Props = {
   entries: DiaryEntry[];
   onCreate: (date: string) => void;
   onSelect: (entry: DiaryEntry) => void;
+  onDelete: (entry: DiaryEntry) => void;
 };
 
 const MONTHS = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12];
@@ -35,7 +36,7 @@ function yearOptions(entries: DiaryEntry[], currentYear: number): number[] {
   return years;
 }
 
-export function CalendarView({ entries, onCreate, onSelect }: Props) {
+export function CalendarView({ entries, onCreate, onSelect, onDelete }: Props) {
   const today = todayISO();
   const now = new Date();
   const [year, setYear] = useState(now.getFullYear());
@@ -112,36 +113,33 @@ export function CalendarView({ entries, onCreate, onSelect }: Props) {
   return (
     <section className="view">
       <header className="view__header view__header--calendar">
-        <div>
-          <p className="eyebrow">日历</p>
-          <div className="month-pickers" role="group" aria-label="选择年月">
-            <label className="month-picker">
-              <span className="sr-only">年份</span>
-              <select
-                value={year}
-                onChange={(e) => jumpTo(Number(e.target.value), monthIndex)}
-              >
-                {years.map((y) => (
-                  <option key={y} value={y}>
-                    {y}年
-                  </option>
-                ))}
-              </select>
-            </label>
-            <label className="month-picker">
-              <span className="sr-only">月份</span>
-              <select
-                value={monthIndex}
-                onChange={(e) => jumpTo(year, Number(e.target.value))}
-              >
-                {MONTHS.map((m, index) => (
-                  <option key={m} value={index}>
-                    {m}月
-                  </option>
-                ))}
-              </select>
-            </label>
-          </div>
+        <div className="month-pickers" role="group" aria-label="选择年月">
+          <label className="month-picker">
+            <span className="sr-only">年份</span>
+            <select
+              value={year}
+              onChange={(e) => jumpTo(Number(e.target.value), monthIndex)}
+            >
+              {years.map((y) => (
+                <option key={y} value={y}>
+                  {y}年
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="month-picker">
+            <span className="sr-only">月份</span>
+            <select
+              value={monthIndex}
+              onChange={(e) => jumpTo(year, Number(e.target.value))}
+            >
+              {MONTHS.map((m, index) => (
+                <option key={m} value={index}>
+                  {m}月
+                </option>
+              ))}
+            </select>
+          </label>
         </div>
         <div className="month-nav">
           <button type="button" className="btn-ghost" onClick={() => goMonth(-1)} aria-label="上个月">
@@ -156,8 +154,7 @@ export function CalendarView({ entries, onCreate, onSelect }: Props) {
             onPointerLeave={clearLongPress}
             onPointerCancel={clearLongPress}
             onContextMenu={(e) => e.preventDefault()}
-            title="点击回本月，长按打开连续月份预览"
-            aria-label="本月，长按打开连续月份预览"
+            aria-label="本月"
           >
             本月
           </button>
@@ -214,8 +211,9 @@ export function CalendarView({ entries, onCreate, onSelect }: Props) {
         </div>
         <EntryList
           entries={dayEntries}
-          emptyText="这一天还没有记录"
+          emptyText="暂无"
           onSelect={onSelect}
+          onDelete={onDelete}
         />
       </div>
 

@@ -10,8 +10,7 @@ export function BackupBanner({ visible, onExport, onLater }: Props) {
   return (
     <div className="backup-banner" role="status">
       <div className="backup-banner__text">
-        <p className="backup-banner__title">该备份日记了</p>
-        <p className="backup-banner__desc">导出一份 JSON，放到网盘更安心</p>
+        <p className="backup-banner__title">该备份了</p>
       </div>
       <div className="backup-banner__actions">
         <button type="button" className="btn-ghost" onClick={onLater}>

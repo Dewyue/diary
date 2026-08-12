@@ -14,17 +14,19 @@ type Props = {
 export function BottomNav({ active, onChange }: Props) {
   return (
     <nav className="bottom-nav" aria-label="主导航">
-      {TABS.map((tab) => (
-        <button
-          key={tab.id}
-          type="button"
-          className={`bottom-nav__item${active === tab.id ? ' is-active' : ''}`}
-          onClick={() => onChange(tab.id)}
-          aria-current={active === tab.id ? 'page' : undefined}
-        >
-          {tab.label}
-        </button>
-      ))}
+      <div className="bottom-nav__dock">
+        {TABS.map((tab) => (
+          <button
+            key={tab.id}
+            type="button"
+            className={`bottom-nav__item${active === tab.id ? ' is-active' : ''}`}
+            onClick={() => onChange(tab.id)}
+            aria-current={active === tab.id ? 'page' : undefined}
+          >
+            <span className="bottom-nav__label">{tab.label}</span>
+          </button>
+        ))}
+      </div>
     </nav>
   );
 }

@@ -1,39 +1,118 @@
+import { useRef, useState, type PointerEvent as ReactPointerEvent } from 'react';
 import type { DiaryEntry } from '../types';
 import { entriesForDate } from '../search';
-import { formatDisplayDate, todayISO } from '../dateUtils';
+import {
+  dayOffsetFromToday,
+  formatDisplayDate,
+  shiftDay,
+  todayISO,
+} from '../dateUtils';
 import { EntryList } from './EntryList';
 
 type Props = {
   entries: DiaryEntry[];
   onCreate: (date: string) => void;
   onSelect: (entry: DiaryEntry) => void;
+  onDelete: (entry: DiaryEntry) => void;
 };
 
-export function TodayView({ entries, onCreate, onSelect }: Props) {
+const SWIPE_MIN_PX = 56;
+const SWIPE_MAX_SLOPE = 0.75;
+
+function relativeDayLabel(offset: number): string {
+  if (offset === 0) return '今日';
+  if (offset === -1) return '昨天';
+  if (offset === 1) return '明天';
+  if (offset < 0) return `${Math.abs(offset)} 天前`;
+  return `${offset} 天后`;
+}
+
+export function TodayView({ entries, onCreate, onSelect, onDelete }: Props) {
   const today = todayISO();
-  const dayEntries = entriesForDate(entries, today);
+  const [viewDate, setViewDate] = useState(today);
+  const dayEntries = entriesForDate(entries, viewDate);
+  const offset = dayOffsetFromToday(viewDate);
+  const isToday = offset === 0;
+
+  const swipeRef = useRef<{
+    id: number;
+    x: number;
+    y: number;
+    locked: 'h' | 'v' | null;
+  } | null>(null);
+
+  function goBy(delta: number) {
+    setViewDate((prev) => shiftDay(prev, delta));
+  }
+
+  function handlePointerDown(e: ReactPointerEvent<HTMLElement>) {
+    if (e.pointerType === 'mouse' && e.button !== 0) return;
+    swipeRef.current = {
+      id: e.pointerId,
+      x: e.clientX,
+      y: e.clientY,
+      locked: null,
+    };
+  }
+
+  function handlePointerMove(e: ReactPointerEvent<HTMLElement>) {
+    const start = swipeRef.current;
+    if (!start || start.id !== e.pointerId || start.locked) return;
+    const dx = e.clientX - start.x;
+    const dy = e.clientY - start.y;
+    if (Math.abs(dx) < 12 && Math.abs(dy) < 12) return;
+    start.locked = Math.abs(dx) > Math.abs(dy) * (1 / SWIPE_MAX_SLOPE) ? 'h' : 'v';
+  }
+
+  function handlePointerUp(e: ReactPointerEvent<HTMLElement>) {
+    const start = swipeRef.current;
+    swipeRef.current = null;
+    if (!start || start.id !== e.pointerId) return;
+    if (start.locked === 'v') return;
+    const dx = e.clientX - start.x;
+    const dy = e.clientY - start.y;
+    if (Math.abs(dx) < SWIPE_MIN_PX) return;
+    if (Math.abs(dy) > Math.abs(dx) * SWIPE_MAX_SLOPE) return;
+    goBy(dx > 0 ? -1 : 1);
+  }
+
+  function handlePointerCancel() {
+    swipeRef.current = null;
+  }
 
   return (
-    <section className="view">
-      <header>
-        <p className="eyebrow">今日</p>
-        <h1 className="view__title">{formatDisplayDate(today)}</h1>
-        <p className="view__subtitle">
-          {dayEntries.length === 0
-            ? '还没写，点右下角记一条'
-            : `今天 ${dayEntries.length} 条`}
-        </p>
+    <section
+      className="view view--day"
+      onPointerDown={handlePointerDown}
+      onPointerMove={handlePointerMove}
+      onPointerUp={handlePointerUp}
+      onPointerCancel={handlePointerCancel}
+    >
+      <header className="page-header">
+        <div className="page-header__row">
+          <p className="eyebrow">{relativeDayLabel(offset)}</p>
+          {!isToday && (
+            <button
+              type="button"
+              className="btn-ghost btn-ghost--sm"
+              onClick={() => setViewDate(today)}
+            >
+              回到今天
+            </button>
+          )}
+        </div>
+        <h1 className="view__title">{formatDisplayDate(viewDate)}</h1>
+        {dayEntries.length > 0 ? (
+          <p className="view__subtitle">{dayEntries.length} 条</p>
+        ) : null}
       </header>
 
       <div className="stack-sm">
-        <div className="section-head">
-          <h2>今日日记</h2>
-          <span>{dayEntries.length} 条</span>
-        </div>
         <EntryList
           entries={dayEntries}
-          emptyText="还没有记录"
+          emptyText="暂无"
           onSelect={onSelect}
+          onDelete={onDelete}
         />
       </div>
 
@@ -41,7 +120,7 @@ export function TodayView({ entries, onCreate, onSelect }: Props) {
         type="button"
         className="fab"
         aria-label="新建日记"
-        onClick={() => onCreate(today)}
+        onClick={() => onCreate(viewDate)}
       >
         +
       </button>

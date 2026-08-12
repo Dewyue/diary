@@ -1,7 +1,6 @@
 import { useId, useState, type FormEvent, type KeyboardEvent } from 'react';
 import type { DiaryEntry } from '../types';
 import { normalizeTag } from '../storage';
-import { formatDisplayDate } from '../dateUtils';
 
 type Props = {
   mode: 'create' | 'edit';
@@ -14,7 +13,6 @@ type Props = {
     date: string;
   }) => void;
   onCancel: () => void;
-  onDelete?: () => void;
 };
 
 export function EntryForm({
@@ -24,7 +22,6 @@ export function EntryForm({
   knownTags = [],
   onSave,
   onCancel,
-  onDelete,
 }: Props) {
   const headingId = useId();
   const contentId = useId();
@@ -79,13 +76,6 @@ export function EntryForm({
     });
   }
 
-  function handleDelete() {
-    if (!onDelete) return;
-    if (window.confirm('确定删除这条日记？此操作不可撤销。')) {
-      onDelete();
-    }
-  }
-
   return (
     <div className="sheet" role="dialog" aria-modal="true" aria-labelledby={headingId}>
       <button
@@ -94,17 +84,13 @@ export function EntryForm({
         aria-label="关闭"
         onClick={onCancel}
       />
-      <form
-        className="sheet__panel"
-        onSubmit={handleSubmit}
-        autoComplete="off"
-      >
+      <form className="sheet__panel" onSubmit={handleSubmit} autoComplete="off">
         <header className="sheet__header">
           <button type="button" className="btn-text" onClick={onCancel}>
             取消
           </button>
           <h2 id={headingId} className="sheet__title">
-            {mode === 'create' ? '写日记' : '编辑日记'}
+            {mode === 'create' ? '写日记' : '编辑'}
           </h2>
           <button
             type="button"
@@ -116,109 +102,99 @@ export function EntryForm({
         </header>
 
         <div className="sheet__body">
-          <p className="sheet__date-label">{formatDisplayDate(date || initialDate)}</p>
+          <div className="composer">
+            <label className="composer__row" htmlFor={dateId}>
+              <span className="composer__label">日期</span>
+              <input
+                id={dateId}
+                className="composer__control"
+                name="diary-date"
+                type="date"
+                value={date || initialDate}
+                onChange={(e) => setDate(e.target.value)}
+                autoComplete="off"
+              />
+            </label>
 
-          <label className="field" htmlFor={dateId}>
-            <span className="field__label">日期</span>
-            <input
-              id={dateId}
-              name="diary-date"
-              type="date"
-              value={date || initialDate}
-              onChange={(e) => setDate(e.target.value)}
-              autoComplete="off"
-            />
-          </label>
+            <label className="composer__block composer__block--grow" htmlFor={contentId}>
+              <span className="composer__label">内容</span>
+              <textarea
+                id={contentId}
+                className="composer__textarea"
+                name="diary-content"
+                value={content}
+                onChange={(e) => setContent(e.target.value)}
+                placeholder=""
+                rows={10}
+                autoComplete="off"
+                autoCorrect="on"
+                autoCapitalize="sentences"
+                autoFocus={mode === 'create'}
+              />
+            </label>
 
-          <div className="field">
-            <span className="field__label" id={tagId}>
-              标签
-            </span>
-
-            {knownTags.length > 0 && (
-              <div className="tag-options" aria-label="曾用标签">
-                {knownTags.map((tag) => {
-                  const selected = tags.includes(tag);
-                  return (
+            <div className="composer__block">
+              <span className="composer__label" id={tagId}>
+                标签
+              </span>
+              {knownTags.length > 0 && (
+                <div className="tag-options" aria-label="曾用标签">
+                  {knownTags.map((tag) => {
+                    const selected = tags.includes(tag);
+                    return (
+                      <button
+                        key={tag}
+                        type="button"
+                        className={`tag${selected ? ' is-active' : ''}`}
+                        onClick={() => toggleKnownTag(tag)}
+                      >
+                        {tag}
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
+              <div className="tag-add-row">
+                <input
+                  type="text"
+                  name="diary-tag"
+                  value={tagInput}
+                  onChange={(e) => setTagInput(e.target.value)}
+                  onKeyDown={handleTagKey}
+                  placeholder="标签"
+                  autoComplete="off"
+                  autoCorrect="off"
+                  autoCapitalize="none"
+                  spellCheck={false}
+                  data-1p-ignore
+                  data-lpignore="true"
+                  aria-labelledby={tagId}
+                />
+                <button
+                  type="button"
+                  className="btn-ghost"
+                  onClick={() => addTag(tagInput)}
+                  disabled={!tagInput.trim()}
+                >
+                  添加
+                </button>
+              </div>
+              {tags.length > 0 && (
+                <div className="tag-selected" aria-label="已选标签">
+                  {tags.map((tag) => (
                     <button
                       key={tag}
                       type="button"
-                      className={`tag${selected ? ' is-active' : ''}`}
-                      onClick={() => toggleKnownTag(tag)}
+                      className="tag tag--removable"
+                      onClick={() => setTags((prev) => prev.filter((t) => t !== tag))}
                     >
-                      {tag}
+                      {tag} ×
                     </button>
-                  );
-                })}
-              </div>
-            )}
-
-            <div className="tag-add-row">
-              <input
-                type="text"
-                name="diary-tag"
-                value={tagInput}
-                onChange={(e) => setTagInput(e.target.value)}
-                onKeyDown={handleTagKey}
-                placeholder="新建标签"
-                autoComplete="off"
-                autoCorrect="off"
-                autoCapitalize="none"
-                spellCheck={false}
-                data-1p-ignore
-                data-lpignore="true"
-                aria-labelledby={tagId}
-              />
-              <button
-                type="button"
-                className="btn-ghost"
-                onClick={() => addTag(tagInput)}
-                disabled={!tagInput.trim()}
-              >
-                添加
-              </button>
+                  ))}
+                </div>
+              )}
             </div>
-
-            {tags.length > 0 && (
-              <div className="tag-selected" aria-label="已选标签">
-                {tags.map((tag) => (
-                  <button
-                    key={tag}
-                    type="button"
-                    className="tag tag--removable"
-                    onClick={() => setTags((prev) => prev.filter((t) => t !== tag))}
-                  >
-                    {tag} ×
-                  </button>
-                ))}
-              </div>
-            )}
-
-            {knownTags.length === 0 && (
-              <p className="hint">还没有历史标签，输入后点添加即可新建</p>
-            )}
           </div>
-
-          <label className="field" htmlFor={contentId}>
-            <span className="field__label">内容</span>
-            <textarea
-              id={contentId}
-              name="diary-content"
-              value={content}
-              onChange={(e) => setContent(e.target.value)}
-              placeholder="写下今天的想法…"
-              rows={10}
-              autoComplete="off"
-              autoCorrect="on"
-              autoCapitalize="sentences"
-            />
-          </label>
-
-          {mode === 'edit' && onDelete && (
-            <button type="button" className="btn-danger" onClick={handleDelete}>
-              删除这条日记
-            </button>
-          )}
         </div>
       </form>
     </div>

@@ -22,6 +22,18 @@ export function formatDisplayDate(iso: string): string {
   return `${date.getFullYear()}年${date.getMonth() + 1}月${date.getDate()}日 周${weekday}`;
 }
 
+export function shiftDay(iso: string, delta: number): string {
+  const date = parseISODate(iso);
+  date.setDate(date.getDate() + delta);
+  return formatISODate(date);
+}
+
+export function dayOffsetFromToday(iso: string): number {
+  const today = parseISODate(todayISO());
+  const target = parseISODate(iso);
+  return Math.round((target.getTime() - today.getTime()) / 86_400_000);
+}
+
 export function formatMonthTitle(year: number, monthIndex: number): string {
   return `${year}年${monthIndex + 1}月`;
 }

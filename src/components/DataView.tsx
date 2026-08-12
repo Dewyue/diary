@@ -22,6 +22,7 @@ type Props = {
   backupPrefs: BackupPrefs;
   onBackupPrefsChange: (prefs: BackupPrefs) => void;
   onSelect: (entry: DiaryEntry) => void;
+  onDelete: (entry: DiaryEntry) => void;
   onReplace: (store: DiaryStore) => void;
   onMerge: (store: DiaryStore) => void;
   onRenameTag: (from: string, to: string) => void;
@@ -42,6 +43,7 @@ export function DataView({
   backupPrefs,
   onBackupPrefsChange,
   onSelect,
+  onDelete,
   onReplace,
   onMerge,
   onRenameTag,
@@ -195,7 +197,7 @@ export function DataView({
     <section className="view data-view">
       <header className="view__header view__header--stack">
         <div>
-          <p className="eyebrow">数据管理</p>
+          <p className="eyebrow">数据</p>
           <h1 className="view__title">查找与备份</h1>
         </div>
         <p className="stats">
@@ -290,7 +292,7 @@ export function DataView({
               </button>
             </div>
             {filters.tags.length > 0 && (
-              <p className="hint">已选：{filters.tags.join('、')}（任一匹配）</p>
+              <p className="hint">{filters.tags.join('、')}</p>
             )}
           </div>
 
@@ -304,9 +306,9 @@ export function DataView({
                   setTagDraft('');
                 }}
               >
-                清空条件
+                清空
               </button>
-              <span className="hint hint--inline">{results.length} 条结果</span>
+              <span className="hint hint--inline">{results.length}</span>
             </div>
           )}
         </div>
@@ -317,11 +319,11 @@ export function DataView({
           {results.map((entry) => (
             <div key={entry.id} className="search-result">
               <p className="search-result__date">{formatDisplayDate(entry.date)}</p>
-              <EntryList entries={[entry]} onSelect={onSelect} />
+              <EntryList entries={[entry]} onSelect={onSelect} onDelete={onDelete} />
             </div>
           ))}
           {results.length === 0 && (
-            <p className="empty-hint">没有符合条件的日记。</p>
+            <p className="empty-hint">暂无</p>
           )}
         </div>
       )}
@@ -329,9 +331,8 @@ export function DataView({
       <div className="panel">
         <h2 className="panel__title">标签管理</h2>
         <div className="panel__stack">
-          <p className="panel__desc">改名后，所有使用该标签的日记会一起更新。</p>
           {allTags.length === 0 ? (
-            <p className="hint">还没有标签。写日记时添加后会出现在这里。</p>
+            <p className="hint">暂无标签</p>
           ) : (
             <ul className="tag-manage">
               {allTags.map((tag) => {
@@ -374,7 +375,7 @@ export function DataView({
                       <>
                         <div className="tag-manage__info">
                           <span className="tag">{tag}</span>
-                          <span className="tag-manage__count">{count} 条</span>
+                          <span className="tag-manage__count">{count}</span>
                         </div>
                         <button
                           type="button"
@@ -400,11 +401,8 @@ export function DataView({
       <div className="panel">
         <h2 className="panel__title">自动备份</h2>
         <div className="panel__stack">
-          <p className="panel__desc">
-            到期后保存日记时自动导出；打开应用也会提醒。
-          </p>
           <label className="switch-row">
-            <span>启用自动备份</span>
+            <span>启用</span>
             <input
               type="checkbox"
               checked={backupPrefs.enabled}
@@ -412,7 +410,7 @@ export function DataView({
             />
           </label>
           <div className="field field--flush">
-            <span className="field__label">提醒间隔</span>
+            <span className="field__label">间隔</span>
             <div className="segmented">
               {INTERVALS.map((days) => (
                 <button
@@ -427,16 +425,13 @@ export function DataView({
               ))}
             </div>
           </div>
-          <p className="meta-line">上次备份：{formatBackupTime(backupPrefs.lastBackupAt)}</p>
+          <p className="meta-line">上次：{formatBackupTime(backupPrefs.lastBackupAt)}</p>
         </div>
       </div>
 
       <div className="panel">
         <h2 className="panel__title">备份</h2>
         <div className="panel__stack">
-          <p className="panel__desc">
-            数据只存在本机，请把导出的 JSON 存到网盘或电脑。
-          </p>
           <div className="import-actions">
             <button
               type="button"

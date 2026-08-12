@@ -94,14 +94,14 @@ export default function App() {
     }
   }
 
-  function handleDelete() {
-    if (editor.mode !== 'edit') return;
-    const id = editor.entry.id;
+  function handleDelete(entry: DiaryEntry) {
     persist({
       version: 1,
-      entries: store.entries.filter((e) => e.id !== id),
+      entries: store.entries.filter((e) => e.id !== entry.id),
     });
-    setEditor({ mode: 'closed' });
+    if (editor.mode === 'edit' && editor.entry.id === entry.id) {
+      setEditor({ mode: 'closed' });
+    }
   }
 
   function handleBannerExport() {
@@ -124,6 +124,7 @@ export default function App() {
             entries={store.entries}
             onCreate={handleCreate}
             onSelect={handleSelect}
+            onDelete={handleDelete}
           />
         )}
         {tab === 'calendar' && (
@@ -131,6 +132,7 @@ export default function App() {
             entries={store.entries}
             onCreate={handleCreate}
             onSelect={handleSelect}
+            onDelete={handleDelete}
           />
         )}
         {tab === 'data' && (
@@ -139,6 +141,7 @@ export default function App() {
             backupPrefs={backupPrefs}
             onBackupPrefsChange={setBackupPrefs}
             onSelect={handleSelect}
+            onDelete={handleDelete}
             onReplace={(incoming) => persist(incoming)}
             onMerge={(incoming) => persist(mergeStores(store, incoming))}
             onRenameTag={(from, to) => persist(renameTag(store, from, to))}
@@ -165,7 +168,6 @@ export default function App() {
           knownTags={knownTags}
           onSave={handleSave}
           onCancel={() => setEditor({ mode: 'closed' })}
-          onDelete={handleDelete}
         />
       )}
     </div>
