@@ -1,4 +1,4 @@
-import { useId, useState, type FormEvent, type KeyboardEvent } from 'react';
+import { useEffect, useId, useState, type FormEvent, type KeyboardEvent } from 'react';
 import type { DiaryEntry } from '../types';
 import { normalizeTag } from '../storage';
 
@@ -32,6 +32,14 @@ export function EntryForm({
   const [date, setDate] = useState(entry?.date ?? initialDate);
   const [tags, setTags] = useState<string[]>(entry?.tags ?? []);
   const [tagInput, setTagInput] = useState('');
+
+  useEffect(() => {
+    const { overflow } = document.body.style;
+    document.body.style.overflow = 'hidden';
+    return () => {
+      document.body.style.overflow = overflow;
+    };
+  }, []);
 
   function addTag(raw: string) {
     const tag = normalizeTag(raw);
@@ -129,7 +137,6 @@ export function EntryForm({
                 autoComplete="off"
                 autoCorrect="on"
                 autoCapitalize="sentences"
-                autoFocus={mode === 'create'}
               />
             </label>
 

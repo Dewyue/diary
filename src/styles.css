@@ -1121,12 +1121,14 @@ button {
   position: fixed;
   inset: 0;
   z-index: 50;
-  display: flex;
-  align-items: flex-end;
-  justify-content: center;
+  /* Avoid flex reflow when the visual viewport shrinks with the keyboard */
+  display: block;
   overscroll-behavior: none;
   height: 100%;
   max-height: 100%;
+  /* Prefer layout viewport; dvh shrinks under the keyboard and lifts the sheet */
+  height: 100lvh;
+  max-height: 100lvh;
 }
 
 .sheet__backdrop {
@@ -1140,16 +1142,19 @@ button {
 }
 
 .sheet__panel {
-  position: relative;
+  position: absolute;
+  left: 50%;
+  bottom: 0;
   z-index: 1;
   width: min(430px, 100%);
-  max-height: min(92vh, 92dvh, 860px);
+  max-height: min(92svh, 860px);
   background: var(--bg);
   border-radius: 1.75rem 1.75rem 0 0;
   display: flex;
   flex-direction: column;
   overflow: hidden;
   overscroll-behavior: contain;
+  transform: translateX(-50%);
   animation: sheet-up 0.28s cubic-bezier(0.22, 1, 0.36, 1);
 }
 
@@ -1159,10 +1164,10 @@ button {
 
 @keyframes sheet-up {
   from {
-    transform: translateY(100%);
+    transform: translateX(-50%) translateY(100%);
   }
   to {
-    transform: none;
+    transform: translateX(-50%);
   }
 }
 
@@ -1298,13 +1303,27 @@ button {
 
 @media (min-width: 480px) {
   .sheet {
-    align-items: center;
     padding: 1rem;
   }
 
   .sheet__panel {
+    bottom: auto;
+    top: 50%;
+    max-height: min(88svh, 780px);
     border-radius: 1.75rem;
-    max-height: min(88vh, 88dvh, 780px);
+    transform: translate(-50%, -50%);
+    animation: sheet-fade 0.22s ease;
+  }
+}
+
+@keyframes sheet-fade {
+  from {
+    opacity: 0;
+    transform: translate(-50%, -46%);
+  }
+  to {
+    opacity: 1;
+    transform: translate(-50%, -50%);
   }
 }
 
