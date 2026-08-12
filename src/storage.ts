@@ -114,6 +114,31 @@ export function updateEntry(
   };
 }
 
+/** Rename a tag across all entries; merges into `to` if it already exists. */
+export function renameTag(
+  store: DiaryStore,
+  fromRaw: string,
+  toRaw: string,
+): DiaryStore {
+  const from = normalizeTag(fromRaw);
+  const to = normalizeTag(toRaw);
+  if (!from || !to || from === to) return store;
+
+  let changed = false;
+  const now = new Date().toISOString();
+  const entries = store.entries.map((entry) => {
+    if (!entry.tags.includes(from)) return entry;
+    changed = true;
+    return {
+      ...entry,
+      tags: [...new Set(entry.tags.map((tag) => (tag === from ? to : tag)))],
+      updatedAt: now,
+    };
+  });
+
+  return changed ? { version: 1, entries } : store;
+}
+
 /** Merge by id; keep the entry with newer updatedAt when ids collide. */
 export function mergeStores(current: DiaryStore, incoming: DiaryStore): DiaryStore {
   const map = new Map<string, DiaryEntry>();

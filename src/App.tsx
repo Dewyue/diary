@@ -4,6 +4,7 @@ import {
   createEntry,
   loadStore,
   mergeStores,
+  renameTag,
   saveStore,
   updateEntry,
 } from './storage';
@@ -140,6 +141,7 @@ export default function App() {
             onSelect={handleSelect}
             onReplace={(incoming) => persist(incoming)}
             onMerge={(incoming) => persist(mergeStores(store, incoming))}
+            onRenameTag={(from, to) => persist(renameTag(store, from, to))}
           />
         )}
       </main>

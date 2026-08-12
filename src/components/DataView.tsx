@@ -5,7 +5,7 @@ import {
   countUniqueDays,
   filterEntries,
 } from '../search';
-import { readStoreFromFile } from '../storage';
+import { normalizeTag, readStoreFromFile } from '../storage';
 import {
   formatBackupTime,
   intervalLabel,
@@ -24,6 +24,7 @@ type Props = {
   onSelect: (entry: DiaryEntry) => void;
   onReplace: (store: DiaryStore) => void;
   onMerge: (store: DiaryStore) => void;
+  onRenameTag: (from: string, to: string) => void;
 };
 
 const emptyFilters: SearchFilters = {
@@ -43,15 +44,27 @@ export function DataView({
   onSelect,
   onReplace,
   onMerge,
+  onRenameTag,
 }: Props) {
   const [filters, setFilters] = useState<SearchFilters>(emptyFilters);
   const [tagDraft, setTagDraft] = useState('');
+  const [editingTag, setEditingTag] = useState<string | null>(null);
+  const [editDraft, setEditDraft] = useState('');
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
   const pendingMode = useRef<'merge' | 'replace' | null>(null);
 
   const allTags = useMemo(() => collectAllTags(store.entries), [store.entries]);
+  const tagCounts = useMemo(() => {
+    const map = new Map<string, number>();
+    for (const entry of store.entries) {
+      for (const tag of entry.tags) {
+        map.set(tag, (map.get(tag) ?? 0) + 1);
+      }
+    }
+    return map;
+  }, [store.entries]);
   const isSearching = Boolean(
     filters.keyword.trim() ||
       filters.year.trim() ||
@@ -79,13 +92,58 @@ export function DataView({
   }
 
   function addTagFilter() {
-    const tag = tagDraft.trim().toLowerCase();
+    const tag = normalizeTag(tagDraft);
     if (!tag) return;
     setFilters((prev) => ({
       ...prev,
       tags: prev.tags.includes(tag) ? prev.tags : [...prev.tags, tag],
     }));
     setTagDraft('');
+  }
+
+  function startRenameTag(tag: string) {
+    setEditingTag(tag);
+    setEditDraft(tag);
+    setMessage(null);
+    setError(null);
+  }
+
+  function cancelRenameTag() {
+    setEditingTag(null);
+    setEditDraft('');
+  }
+
+  function commitRenameTag() {
+    if (!editingTag) return;
+    const next = normalizeTag(editDraft);
+    if (!next) {
+      setError('标签名不能为空');
+      return;
+    }
+    if (next === editingTag) {
+      cancelRenameTag();
+      return;
+    }
+    const count = tagCounts.get(editingTag) ?? 0;
+    const merging = allTags.includes(next) && next !== editingTag;
+    const ok = window.confirm(
+      merging
+        ? `将「${editingTag}」合并为「${next}」，会影响 ${count} 条日记，确定？`
+        : `将「${editingTag}」改为「${next}」，会影响 ${count} 条日记，确定？`,
+    );
+    if (!ok) return;
+    onRenameTag(editingTag, next);
+    setFilters((prev) => ({
+      ...prev,
+      tags: prev.tags.map((tag) => (tag === editingTag ? next : tag)),
+    }));
+    setMessage(
+      merging
+        ? `已将「${editingTag}」合并为「${next}」`
+        : `已将「${editingTag}」改为「${next}」`,
+    );
+    setError(null);
+    cancelRenameTag();
   }
 
   async function handleFile(file: File | undefined) {
@@ -267,6 +325,77 @@ export function DataView({
           )}
         </div>
       )}
+
+      <div className="panel">
+        <h2 className="panel__title">标签管理</h2>
+        <div className="panel__stack">
+          <p className="panel__desc">改名后，所有使用该标签的日记会一起更新。</p>
+          {allTags.length === 0 ? (
+            <p className="hint">还没有标签。写日记时添加后会出现在这里。</p>
+          ) : (
+            <ul className="tag-manage">
+              {allTags.map((tag) => {
+                const count = tagCounts.get(tag) ?? 0;
+                const isEditing = editingTag === tag;
+                return (
+                  <li key={tag} className="tag-manage__row">
+                    {isEditing ? (
+                      <>
+                        <input
+                          className="tag-manage__input"
+                          value={editDraft}
+                          onChange={(e) => setEditDraft(e.target.value)}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter') {
+                              e.preventDefault();
+                              commitRenameTag();
+                            } else if (e.key === 'Escape') {
+                              e.preventDefault();
+                              cancelRenameTag();
+                            }
+                          }}
+                          autoFocus
+                          aria-label={`重命名标签 ${tag}`}
+                        />
+                        <div className="tag-manage__actions">
+                          <button
+                            type="button"
+                            className="btn-text btn-text--accent"
+                            onClick={commitRenameTag}
+                          >
+                            保存
+                          </button>
+                          <button type="button" className="btn-text" onClick={cancelRenameTag}>
+                            取消
+                          </button>
+                        </div>
+                      </>
+                    ) : (
+                      <>
+                        <div className="tag-manage__info">
+                          <span className="tag">{tag}</span>
+                          <span className="tag-manage__count">{count} 条</span>
+                        </div>
+                        <button
+                          type="button"
+                          className="btn-ghost"
+                          onClick={() => startRenameTag(tag)}
+                        >
+                          改名
+                        </button>
+                      </>
+                    )}
+                  </li>
+                );
+              })}
+            </ul>
+          )}
+          {error && editingTag && <p className="feedback feedback--err">{error}</p>}
+          {message && !editingTag && (
+            <p className="feedback feedback--ok">{message}</p>
+          )}
+        </div>
+      </div>
 
       <div className="panel">
         <h2 className="panel__title">自动备份</h2>
