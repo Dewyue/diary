@@ -1,12 +1,17 @@
 import { useEffect, useId, useRef, useState, type FormEvent, type KeyboardEvent } from 'react';
+import type { EntryDraft, VoiceClip } from '../types';
 import { normalizeTag } from '../storage';
+import { deleteVoiceBlobs } from '../voiceDb';
+import { VoiceRecorder } from './VoiceRecorder';
 
 type Props = {
   date: string;
   initialContent?: string;
   initialTags?: string[];
+  initialVoices?: VoiceClip[];
   knownTags?: string[];
-  onSave: (payload: { content: string; tags: string[]; date: string }) => void;
+  startWithVoice?: boolean;
+  onSave: (payload: EntryDraft) => void;
   onCancel: () => void;
 };
 
@@ -14,7 +19,9 @@ export function InlineComposer({
   date,
   initialContent = '',
   initialTags = [],
+  initialVoices = [],
   knownTags = [],
+  startWithVoice = false,
   onSave,
   onCancel,
 }: Props) {
@@ -24,8 +31,24 @@ export function InlineComposer({
   const [content, setContent] = useState(initialContent);
   const [tags, setTags] = useState<string[]>(initialTags);
   const [tagInput, setTagInput] = useState('');
+  const [voices, setVoices] = useState<VoiceClip[]>(initialVoices);
+
+  const initialVoiceIdsRef = useRef(new Set(initialVoices.map((v) => v.id)));
+  const createdIdsRef = useRef(new Set<string>());
+  const committedRef = useRef(false);
+  const voicesRef = useRef(voices);
+  voicesRef.current = voices;
 
   useEffect(() => {
+    return () => {
+      if (committedRef.current) return;
+      const leftover = [...createdIdsRef.current];
+      if (leftover.length > 0) void deleteVoiceBlobs(leftover);
+    };
+  }, []);
+
+  useEffect(() => {
+    if (startWithVoice) return;
     const id = window.requestAnimationFrame(() => {
       const el = textareaRef.current;
       if (!el) return;
@@ -34,7 +57,15 @@ export function InlineComposer({
       el.setSelectionRange(len, len);
     });
     return () => window.cancelAnimationFrame(id);
-  }, []);
+  }, [startWithVoice]);
+
+  function handleVoicesChange(next: VoiceClip[]) {
+    const initialIds = initialVoiceIdsRef.current;
+    for (const clip of next) {
+      if (!initialIds.has(clip.id)) createdIdsRef.current.add(clip.id);
+    }
+    setVoices(next);
+  }
 
   function addTag(raw: string) {
     const tag = normalizeTag(raw);
@@ -60,17 +91,26 @@ export function InlineComposer({
 
   function handleSubmit(e?: FormEvent) {
     e?.preventDefault();
-    if (!content.trim()) {
-      window.alert('请填写内容');
+    const currentVoices = voicesRef.current;
+    if (!content.trim() && currentVoices.length === 0) {
+      window.alert('请填写内容或录一段语音');
       return;
     }
     const finalTags = tagInput.trim()
       ? [...new Set([...tags, normalizeTag(tagInput)])]
       : tags;
+    const currentIds = new Set(currentVoices.map((v) => v.id));
+    const toDelete = [
+      ...[...initialVoiceIdsRef.current].filter((id) => !currentIds.has(id)),
+      ...[...createdIdsRef.current].filter((id) => !currentIds.has(id)),
+    ];
+    committedRef.current = true;
+    if (toDelete.length > 0) void deleteVoiceBlobs(toDelete);
     onSave({
       content,
       tags: finalTags.filter(Boolean),
       date,
+      voices: currentVoices,
     });
   }
 
@@ -82,7 +122,12 @@ export function InlineComposer({
   }
 
   return (
-    <form className="inline-composer" onSubmit={handleSubmit} autoComplete="off">
+    <form
+      className="inline-composer"
+      onSubmit={handleSubmit}
+      autoComplete="off"
+      onPointerDown={(e) => e.stopPropagation()}
+    >
       <div className="inline-composer__toolbar">
         <button type="button" className="btn-text" onClick={onCancel}>
           取消
@@ -91,6 +136,12 @@ export function InlineComposer({
           完成
         </button>
       </div>
+
+      <VoiceRecorder
+        voices={voices}
+        onChange={handleVoicesChange}
+        autoStart={startWithVoice}
+      />
 
       <label className="inline-composer__content" htmlFor={contentId}>
         <span className="sr-only">内容</span>

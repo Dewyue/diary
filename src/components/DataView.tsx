@@ -1,11 +1,11 @@
 import { useMemo, useRef, useState } from 'react';
-import type { DiaryEntry, DiaryStore, SearchFilters } from '../types';
+import type { DiaryEntry, DiaryStore, EntryDraft, SearchFilters } from '../types';
 import {
   collectAllTags,
   countUniqueDays,
   filterEntries,
 } from '../search';
-import { normalizeTag, readStoreFromFile } from '../storage';
+import { normalizeTag } from '../storage';
 import {
   formatBackupTime,
   intervalLabel,
@@ -14,6 +14,7 @@ import {
   type BackupIntervalDays,
   type BackupPrefs,
 } from '../backup';
+import { readBackupFromFile, type ImportedBackup } from '../voiceBackup';
 import { formatDisplayDate } from '../dateUtils';
 import { EntryList } from './EntryList';
 import { InlineComposer } from './InlineComposer';
@@ -27,13 +28,8 @@ type Props = {
   onSelect: (entry: DiaryEntry) => void;
   onDelete: (entry: DiaryEntry) => void;
   onCancelEditor: () => void;
-  onSaveEditor: (payload: {
-    content: string;
-    tags: string[];
-    date: string;
-  }) => void;
-  onReplace: (store: DiaryStore) => void;
-  onMerge: (store: DiaryStore) => void;
+  onSaveEditor: (payload: EntryDraft) => void;
+  onImport: (incoming: ImportedBackup, mode: 'merge' | 'replace') => Promise<void>;
   onRenameTag: (from: string, to: string) => void;
 };
 
@@ -58,8 +54,7 @@ export function DataView({
   onDelete,
   onCancelEditor,
   onSaveEditor,
-  onReplace,
-  onMerge,
+  onImport,
   onRenameTag,
 }: Props) {
   const [filters, setFilters] = useState<SearchFilters>(emptyFilters);
@@ -149,7 +144,7 @@ export function DataView({
     const mode = pendingMode.current;
     pendingMode.current = null;
     try {
-      const imported = await readStoreFromFile(file);
+      const imported = await readBackupFromFile(file);
       if (mode === 'replace') {
         if (
           !window.confirm(
@@ -158,11 +153,11 @@ export function DataView({
         ) {
           return;
         }
-        onReplace(imported);
-        setMessage(`已覆盖导入 ${imported.entries.length} 条日记`);
+        await onImport(imported, 'replace');
+        setMessage(`已覆盖导入 ${imported.store.entries.length} 条日记`);
       } else {
-        onMerge(imported);
-        setMessage(`已合并导入 ${imported.entries.length} 条日记`);
+        await onImport(imported, 'merge');
+        setMessage(`已合并导入 ${imported.store.entries.length} 条日记`);
       }
       setError(null);
     } catch (err) {
@@ -176,11 +171,16 @@ export function DataView({
     fileRef.current?.click();
   }
 
-  function handleManualExport() {
-    const next = runBackupExport(store, backupPrefs);
-    onBackupPrefsChange(next);
-    setMessage('已导出备份文件');
-    setError(null);
+  async function handleManualExport() {
+    try {
+      const next = await runBackupExport(store, backupPrefs);
+      onBackupPrefsChange(next);
+      setMessage('已导出备份文件');
+      setError(null);
+    } catch (err) {
+      setMessage(null);
+      setError(err instanceof Error ? err.message : '导出失败');
+    }
   }
 
   function updateBackup(partial: Partial<BackupPrefs>) {
@@ -322,6 +322,7 @@ export function DataView({
                 date={editingEntry.date}
                 initialContent={editingEntry.content}
                 initialTags={editingEntry.tags}
+                initialVoices={editingEntry.voices}
                 knownTags={knownTags}
                 onSave={onSaveEditor}
                 onCancel={onCancelEditor}
@@ -382,7 +383,7 @@ export function DataView({
               className="btn-block btn-block--accent"
               onClick={handleManualExport}
             >
-              导出 JSON
+              导出备份
             </button>
             <button type="button" className="btn-block" onClick={() => startImport('merge')}>
               合并导入
@@ -394,7 +395,7 @@ export function DataView({
           <input
             ref={fileRef}
             type="file"
-            accept="application/json,.json"
+            accept="application/json,.json,application/zip,.zip"
             hidden
             onChange={(e) => {
               void handleFile(e.target.files?.[0]);

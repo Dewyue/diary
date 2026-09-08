@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, type PointerEvent as ReactPointerEvent } from 'react';
-import type { DiaryEntry } from '../types';
+import type { DiaryEntry, EntryDraft } from '../types';
 import { entriesForDate } from '../search';
 import {
   dayOffsetFromToday,
@@ -7,6 +7,7 @@ import {
   shiftDay,
   todayISO,
 } from '../dateUtils';
+import { captureMicFromGesture, isVoiceSupported } from '../voiceCapture';
 import { EntryList } from './EntryList';
 import { InlineComposer } from './InlineComposer';
 
@@ -14,14 +15,11 @@ type Props = {
   entries: DiaryEntry[];
   knownTags: string[];
   draftingDate: string | null;
+  draftingVoice?: boolean;
   editingEntry: DiaryEntry | null;
-  onCreate: (date: string) => void;
+  onCreate: (date: string, opts?: { voice?: boolean }) => void;
   onCancelEditor: () => void;
-  onSaveEditor: (payload: {
-    content: string;
-    tags: string[];
-    date: string;
-  }) => void;
+  onSaveEditor: (payload: EntryDraft) => void;
   onSelect: (entry: DiaryEntry) => void;
   onDelete: (entry: DiaryEntry) => void;
 };
@@ -37,10 +35,22 @@ function relativeDayLabel(offset: number): string {
   return `${offset} 天后`;
 }
 
+function MicIcon() {
+  return (
+    <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true">
+      <path
+        fill="currentColor"
+        d="M12 14a3 3 0 0 0 3-3V6a3 3 0 0 0-6 0v5a3 3 0 0 0 3 3zm5-3a5 5 0 0 1-10 0H5a7 7 0 0 0 6 6.92V20H9v2h6v-2h-2v-2.08A7 7 0 0 0 19 11h-2z"
+      />
+    </svg>
+  );
+}
+
 export function TodayView({
   entries,
   knownTags,
   draftingDate,
+  draftingVoice = false,
   editingEntry,
   onCreate,
   onCancelEditor,
@@ -115,6 +125,14 @@ export function TodayView({
     swipeRef.current = null;
   }
 
+  async function handleVoiceCreate() {
+    const pending = isVoiceSupported()
+      ? captureMicFromGesture()
+      : Promise.resolve(false);
+    onCreate(viewDate, { voice: true });
+    await pending;
+  }
+
   return (
     <section
       className={`view view--day${isEditing ? ' is-drafting' : ''}`}
@@ -145,8 +163,10 @@ export function TodayView({
       <div className="stack-sm">
         {isDrafting && (
           <InlineComposer
+            key={draftingVoice ? 'create-voice' : 'create-text'}
             date={viewDate}
             knownTags={knownTags}
+            startWithVoice={draftingVoice}
             onSave={onSaveEditor}
             onCancel={onCancelEditor}
           />
@@ -157,6 +177,7 @@ export function TodayView({
             date={editingEntry.date}
             initialContent={editingEntry.content}
             initialTags={editingEntry.tags}
+            initialVoices={editingEntry.voices}
             knownTags={knownTags}
             onSave={onSaveEditor}
             onCancel={onCancelEditor}
@@ -171,14 +192,27 @@ export function TodayView({
       </div>
 
       {!isEditing && (
-        <button
-          type="button"
-          className="fab"
-          aria-label="新建日记"
-          onClick={() => onCreate(viewDate)}
+        <div
+          className="fab-cluster"
+          onPointerDown={(e) => e.stopPropagation()}
         >
-          +
-        </button>
+          <button
+            type="button"
+            className="fab fab--voice"
+            aria-label="录音"
+            onClick={() => void handleVoiceCreate()}
+          >
+            <MicIcon />
+          </button>
+          <button
+            type="button"
+            className="fab"
+            aria-label="新建日记"
+            onClick={() => onCreate(viewDate)}
+          >
+            +
+          </button>
+        </div>
       )}
     </section>
   );

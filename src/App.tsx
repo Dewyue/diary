@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import type { DiaryEntry, DiaryStore, EditorState, TabId } from './types';
+import type { DiaryEntry, DiaryStore, EditorState, EntryDraft, TabId } from './types';
 import {
   createEntry,
   loadStore,
@@ -21,6 +21,9 @@ import { TodayView } from './components/TodayView';
 import { CalendarView } from './components/CalendarView';
 import { DataView } from './components/DataView';
 import { BackupBanner } from './components/BackupBanner';
+import { collectVoiceIds, persistImportedClips, type ImportedBackup } from './voiceBackup';
+import { deleteVoiceBlobs } from './voiceDb';
+import { discardAllMic } from './voiceCapture';
 import './styles.css';
 
 export default function App() {
@@ -35,6 +38,7 @@ export default function App() {
   );
 
   const draftingDate = editor.mode === 'create' ? editor.date : null;
+  const draftingVoice = editor.mode === 'create' && Boolean(editor.startWithVoice);
   const editingEntry = editor.mode === 'edit' ? editor.entry : null;
 
   const showBackupBanner =
@@ -53,23 +57,25 @@ export default function App() {
     setStore(next);
   }, []);
 
-  function handleCreate(date: string) {
-    setEditor({ mode: 'create', date });
+  function handleCreate(date: string, opts?: { voice?: boolean }) {
+    if (!opts?.voice) discardAllMic();
+    setEditor({ mode: 'create', date, startWithVoice: Boolean(opts?.voice) });
   }
 
   function handleSelect(entry: DiaryEntry) {
     setEditor({ mode: 'edit', entry });
   }
 
-  function handleSave(payload: {
-    content: string;
-    tags: string[];
-    date: string;
-  }) {
+  function handleSave(payload: EntryDraft) {
     try {
       let nextStore = store;
       if (editor.mode === 'create') {
-        const entry = createEntry(payload.date, payload.content, payload.tags);
+        const entry = createEntry(
+          payload.date,
+          payload.content,
+          payload.tags,
+          payload.voices,
+        );
         nextStore = { version: 1, entries: [...store.entries, entry] };
       } else if (editor.mode === 'edit') {
         const updated = updateEntry(
@@ -77,6 +83,7 @@ export default function App() {
           payload.content,
           payload.tags,
           payload.date,
+          payload.voices,
         );
         nextStore = {
           version: 1,
@@ -85,18 +92,22 @@ export default function App() {
       }
       persist(nextStore);
       setEditor({ mode: 'closed' });
+      discardAllMic();
 
-      const auto = maybeAutoBackup(nextStore, backupPrefs);
-      if (auto) {
-        setBackupPrefs(auto);
-        setBannerSnoozed(false);
-      }
+      void (async () => {
+        const auto = await maybeAutoBackup(nextStore, backupPrefs);
+        if (auto) {
+          setBackupPrefs(auto);
+          setBannerSnoozed(false);
+        }
+      })();
     } catch (err) {
       window.alert(err instanceof Error ? err.message : '保存失败');
     }
   }
 
   function handleDelete(entry: DiaryEntry) {
+    void deleteVoiceBlobs(collectVoiceIds({ version: 1, entries: [entry] }));
     persist({
       version: 1,
       entries: store.entries.filter((e) => e.id !== entry.id),
@@ -107,13 +118,28 @@ export default function App() {
   }
 
   function handleBannerExport() {
-    const next = runBackupExport(store, backupPrefs);
-    setBackupPrefs(next);
-    setBannerSnoozed(false);
+    void (async () => {
+      const next = await runBackupExport(store, backupPrefs);
+      setBackupPrefs(next);
+      setBannerSnoozed(false);
+    })();
   }
 
   function closeEditor() {
+    discardAllMic();
     setEditor({ mode: 'closed' });
+  }
+
+  async function handleImport(incoming: ImportedBackup, mode: 'merge' | 'replace') {
+    await persistImportedClips(incoming.clips);
+    if (mode === 'replace') {
+      const keep = new Set(collectVoiceIds(incoming.store));
+      const orphans = collectVoiceIds(store).filter((id) => !keep.has(id));
+      if (orphans.length > 0) await deleteVoiceBlobs(orphans);
+      persist(incoming.store);
+      return;
+    }
+    persist(mergeStores(store, incoming.store));
   }
 
   return (
@@ -130,6 +156,7 @@ export default function App() {
             entries={store.entries}
             knownTags={knownTags}
             draftingDate={draftingDate}
+            draftingVoice={draftingVoice}
             editingEntry={editingEntry}
             onCreate={handleCreate}
             onCancelEditor={closeEditor}
@@ -162,8 +189,7 @@ export default function App() {
             onDelete={handleDelete}
             onCancelEditor={closeEditor}
             onSaveEditor={handleSave}
-            onReplace={(incoming) => persist(incoming)}
-            onMerge={(incoming) => persist(mergeStores(store, incoming))}
+            onImport={handleImport}
             onRenameTag={(from, to) => persist(renameTag(store, from, to))}
           />
         )}

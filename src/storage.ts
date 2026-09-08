@@ -1,4 +1,4 @@
-import type { DiaryEntry, DiaryStore } from './types';
+import type { DiaryEntry, DiaryStore, VoiceClip } from './types';
 
 const STORAGE_KEY = 'diary.store.v1';
 
@@ -10,9 +10,28 @@ function isStringArray(value: unknown): value is string[] {
   return Array.isArray(value) && value.every((item) => typeof item === 'string');
 }
 
+function isVoiceClip(value: unknown): value is VoiceClip {
+  if (!value || typeof value !== 'object') return false;
+  const v = value as Record<string, unknown>;
+  return (
+    typeof v.id === 'string' &&
+    typeof v.mimeType === 'string' &&
+    typeof v.durationMs === 'number' &&
+    Number.isFinite(v.durationMs) &&
+    typeof v.createdAt === 'string'
+  );
+}
+
+function parseVoices(value: unknown): VoiceClip[] | undefined {
+  if (value == null) return undefined;
+  if (!Array.isArray(value) || !value.every(isVoiceClip)) return undefined;
+  return value.length > 0 ? value : undefined;
+}
+
 function isEntry(value: unknown): value is DiaryEntry {
   if (!value || typeof value !== 'object') return false;
   const e = value as Record<string, unknown>;
+  const voicesOk = e.voices == null || (Array.isArray(e.voices) && e.voices.every(isVoiceClip));
   return (
     typeof e.id === 'string' &&
     typeof e.date === 'string' &&
@@ -20,7 +39,8 @@ function isEntry(value: unknown): value is DiaryEntry {
     typeof e.content === 'string' &&
     isStringArray(e.tags) &&
     typeof e.createdAt === 'string' &&
-    typeof e.updatedAt === 'string'
+    typeof e.updatedAt === 'string' &&
+    voicesOk
   );
 }
 
@@ -40,6 +60,7 @@ export function parseStore(raw: unknown): DiaryStore {
     entries: data.entries.map((entry) => ({
       ...entry,
       tags: entry.tags.map(normalizeTag).filter(Boolean),
+      voices: parseVoices(entry.voices),
     })),
   };
 }
@@ -81,10 +102,15 @@ export function createId(): string {
   return `id-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`;
 }
 
+function compactVoices(voices?: VoiceClip[]): VoiceClip[] | undefined {
+  return voices && voices.length > 0 ? voices : undefined;
+}
+
 export function createEntry(
   date: string,
   content: string,
   tags: string[],
+  voices?: VoiceClip[],
 ): DiaryEntry {
   const now = new Date().toISOString();
   return {
@@ -93,6 +119,7 @@ export function createEntry(
     title: '',
     content: content.trim(),
     tags: [...new Set(tags.map(normalizeTag).filter(Boolean))],
+    voices: compactVoices(voices),
     createdAt: now,
     updatedAt: now,
   };
@@ -103,6 +130,7 @@ export function updateEntry(
   content: string,
   tags: string[],
   date?: string,
+  voices?: VoiceClip[],
 ): DiaryEntry {
   return {
     ...entry,
@@ -110,6 +138,7 @@ export function updateEntry(
     title: '',
     content: content.trim(),
     tags: [...new Set(tags.map(normalizeTag).filter(Boolean))],
+    voices: compactVoices(voices),
     updatedAt: new Date().toISOString(),
   };
 }

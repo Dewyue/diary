@@ -1,5 +1,5 @@
 import type { DiaryStore } from './types';
-import { exportStoreToFile } from './storage';
+import { exportDiaryBackup } from './voiceBackup';
 
 const BACKUP_KEY = 'diary.backup.v1';
 
@@ -61,12 +61,12 @@ export function markBackupDone(prefs: BackupPrefs = loadBackupPrefs()): BackupPr
   return next;
 }
 
-/** Download backup JSON and record success time. */
-export function runBackupExport(
+/** Download backup JSON (or zip if there is audio) and record success time. */
+export async function runBackupExport(
   store: DiaryStore,
   prefs: BackupPrefs = loadBackupPrefs(),
-): BackupPrefs {
-  exportStoreToFile(store);
+): Promise<BackupPrefs> {
+  await exportDiaryBackup(store);
   return markBackupDone(prefs);
 }
 
@@ -74,10 +74,10 @@ export function runBackupExport(
  * If auto-backup is on and overdue, export now.
  * Best called from a user gesture (e.g. after tapping 保存).
  */
-export function maybeAutoBackup(
+export async function maybeAutoBackup(
   store: DiaryStore,
   prefs: BackupPrefs = loadBackupPrefs(),
-): BackupPrefs | null {
+): Promise<BackupPrefs | null> {
   if (!prefs.enabled) return null;
   if (store.entries.length === 0) return null;
   if (!isBackupDue(prefs)) return null;

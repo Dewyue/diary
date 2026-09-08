@@ -1,5 +1,6 @@
 import type { DiaryEntry } from '../types';
 import { formatDisplayDate, formatTime } from '../dateUtils';
+import { VoicePlayer } from './VoicePlayer';
 
 type Props = {
   entry: DiaryEntry;
@@ -8,6 +9,9 @@ type Props = {
 };
 
 export function EntryPeek({ entry, onClose, onEdit }: Props) {
+  const voices = entry.voices ?? [];
+  const hasContent = Boolean(entry.content.trim());
+
   return (
     <div className="peek" role="dialog" aria-modal="true" aria-label="查看日记">
       <button
@@ -33,7 +37,22 @@ export function EntryPeek({ entry, onClose, onEdit }: Props) {
         )}
 
         <div className="peek__body">
-          <p className="peek__content">{entry.content || '（空内容）'}</p>
+          {voices.length > 0 && (
+            <div className="peek__voices">
+              {voices.map((clip) => (
+                <VoicePlayer
+                  key={clip.id}
+                  id={clip.id}
+                  durationMs={clip.durationMs}
+                />
+              ))}
+            </div>
+          )}
+          {hasContent ? (
+            <p className="peek__content">{entry.content}</p>
+          ) : voices.length === 0 ? (
+            <p className="peek__content">（空内容）</p>
+          ) : null}
         </div>
 
         <footer className="peek__footer">

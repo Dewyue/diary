@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import type { DiaryEntry } from '../types';
+import type { DiaryEntry, EntryDraft } from '../types';
 import { datesWithEntries, entriesForDate } from '../search';
 import {
   buildMonthGrid,
@@ -19,11 +19,7 @@ type Props = {
   editingEntry: DiaryEntry | null;
   onCreate: (date: string) => void;
   onCancelEditor: () => void;
-  onSaveEditor: (payload: {
-    content: string;
-    tags: string[];
-    date: string;
-  }) => void;
+  onSaveEditor: (payload: EntryDraft) => void;
   onSelect: (entry: DiaryEntry) => void;
   onDelete: (entry: DiaryEntry) => void;
 };
@@ -276,6 +272,7 @@ export function CalendarView({
             date={editingEntry.date}
             initialContent={editingEntry.content}
             initialTags={editingEntry.tags}
+            initialVoices={editingEntry.voices}
             knownTags={knownTags}
             onSave={onSaveEditor}
             onCancel={onCancelEditor}
