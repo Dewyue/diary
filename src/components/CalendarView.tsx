@@ -10,6 +10,7 @@ import {
 import { EntryList } from './EntryList';
 import { CalendarScrollPreview } from './CalendarScrollPreview';
 import { InlineComposer } from './InlineComposer';
+import { EntryPeek } from './EntryPeek';
 
 type Props = {
   entries: DiaryEntry[];
@@ -63,6 +64,7 @@ export function CalendarView({
   const [monthIndex, setMonthIndex] = useState(now.getMonth());
   const [selectedDate, setSelectedDate] = useState(today);
   const [previewOpen, setPreviewOpen] = useState(false);
+  const [viewingEntry, setViewingEntry] = useState<DiaryEntry | null>(null);
 
   const longPressTimer = useRef<number | null>(null);
   const longPressTriggered = useRef(false);
@@ -103,6 +105,7 @@ export function CalendarView({
   function jumpTo(nextYear: number, nextMonthIndex: number, date?: string) {
     setYear(nextYear);
     setMonthIndex(nextMonthIndex);
+    setViewingEntry(null);
     if (date) {
       setSelectedDate(date);
       return;
@@ -133,6 +136,7 @@ export function CalendarView({
     clearLongPress();
     longPressTimer.current = window.setTimeout(() => {
       longPressTriggered.current = true;
+      setViewingEntry(null);
       setPreviewOpen(true);
     }, LONG_PRESS_MS);
   }
@@ -229,7 +233,10 @@ export function CalendarView({
                 ]
                   .filter(Boolean)
                   .join(' ')}
-                onClick={() => setSelectedDate(cell.date)}
+                onClick={() => {
+                  setViewingEntry(null);
+                  setSelectedDate(cell.date);
+                }}
               >
                 <span>{cell.day}</span>
                 {hasEntries ? <i className="calendar__dot" aria-hidden /> : null}
@@ -246,7 +253,10 @@ export function CalendarView({
             <button
               type="button"
               className="btn-primary btn-primary--sm"
-              onClick={() => onCreate(selectedDate)}
+              onClick={() => {
+                setViewingEntry(null);
+                onCreate(selectedDate);
+              }}
             >
               新建
             </button>
@@ -274,11 +284,21 @@ export function CalendarView({
         <EntryList
           entries={dayEntries}
           emptyText={isEditing ? '' : '暂无'}
-          onSelect={onSelect}
+          onSelect={setViewingEntry}
           onDelete={onDelete}
         />
       </div>
 
+      {viewingEntry && (
+        <EntryPeek
+          entry={viewingEntry}
+          onClose={() => setViewingEntry(null)}
+          onEdit={(entry) => {
+            setViewingEntry(null);
+            onSelect(entry);
+          }}
+        />
+      )}
       {previewOpen && (
         <CalendarScrollPreview
           marked={marked}
