@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import type { DiaryEntry, DiaryStore, EntryDraft, SearchFilters } from '../types';
 import {
   collectAllTags,
@@ -17,6 +17,7 @@ import {
 import { readBackupFromFile, type ImportedBackup } from '../voiceBackup';
 import { formatDisplayDate } from '../dateUtils';
 import { EntryList } from './EntryList';
+import { EntryPeek } from './EntryPeek';
 import { InlineComposer } from './InlineComposer';
 
 type Props = {
@@ -61,6 +62,7 @@ export function DataView({
   const [tagDraft, setTagDraft] = useState('');
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [viewingEntry, setViewingEntry] = useState<DiaryEntry | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
   const pendingMode = useRef<'merge' | 'replace' | null>(null);
   const longPressTimer = useRef<number | null>(null);
@@ -80,6 +82,13 @@ export function DataView({
     [store.entries, filters, isSearching],
   );
   const dayCount = countUniqueDays(store.entries);
+
+  useEffect(() => {
+    if (!viewingEntry) return;
+    if (!results.some((entry) => entry.id === viewingEntry.id)) {
+      setViewingEntry(null);
+    }
+  }, [results, viewingEntry]);
 
   function updateFilter<K extends keyof SearchFilters>(key: K, value: SearchFilters[K]) {
     setFilters((prev) => ({ ...prev, [key]: value }));
@@ -334,13 +343,31 @@ export function DataView({
             .map((entry) => (
               <div key={entry.id} className="search-result">
                 <p className="search-result__date">{formatDisplayDate(entry.date)}</p>
-                <EntryList entries={[entry]} onSelect={onSelect} onDelete={onDelete} />
+                <EntryList
+                  entries={[entry]}
+                  onSelect={setViewingEntry}
+                  onDelete={(target) => {
+                    if (viewingEntry?.id === target.id) setViewingEntry(null);
+                    onDelete(target);
+                  }}
+                />
               </div>
             ))}
           {results.length === 0 && (
             <p className="empty-hint">暂无</p>
           )}
         </div>
+      )}
+
+      {viewingEntry && (
+        <EntryPeek
+          entry={viewingEntry}
+          onClose={() => setViewingEntry(null)}
+          onEdit={(entry) => {
+            setViewingEntry(null);
+            onSelect(entry);
+          }}
+        />
       )}
 
       <div className="panel">
